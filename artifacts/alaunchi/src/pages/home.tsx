@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useModpacks } from "@/hooks/use-modpacks";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Settings, LogOut, Download, Play, RefreshCw, Loader2 } from "lucide-react";
@@ -9,9 +9,17 @@ import { installModpack, launchMinecraft } from "@/services/electron";
 import { toast } from "sonner";
 import { Modpack } from "@/services/github";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-function ModpackCard({ pack, index }: { pack: Modpack; index: number }) {
+interface ModpackCardProps {
+  pack: Modpack;
+  index: number;
+  authToken: string;
+  username: string;
+  uuid: string;
+}
+
+function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProps) {
   const [status, setStatus] = useState<"idle" | "installing" | "updating" | "launching">("idle");
   const [progress, setProgress] = useState(0);
   const { updateModpackStatus } = useModpacks();
@@ -23,7 +31,7 @@ function ModpackCard({ pack, index }: { pack: Modpack; index: number }) {
       await installModpack(pack.id, [], (p) => setProgress(p));
       updateModpackStatus(pack.id, { installed: true, installedVersion: pack.version });
       toast.success(`${pack.name} instalado correctamente.`);
-    } catch (e) {
+    } catch {
       toast.error("Error al instalar.");
     } finally {
       setStatus("idle");
@@ -34,36 +42,51 @@ function ModpackCard({ pack, index }: { pack: Modpack; index: number }) {
     try {
       if (pack.updateAvailable) {
         setStatus("updating");
-        await installModpack(pack.id, []);
+        await installModpack(pack.id, [], (p) => setProgress(p));
         updateModpackStatus(pack.id, { updateAvailable: false, installedVersion: pack.version });
         toast.success(`${pack.name} actualizado.`);
       }
       setStatus("launching");
-      await launchMinecraft(pack.id, pack.minecraftVersion, pack.loaderType);
+      await launchMinecraft({
+        modpackId: pack.id,
+        mcVersion: pack.minecraftVersion,
+        loaderType: pack.loaderType,
+        authToken,
+        username,
+        uuid,
+      });
       toast.success(`Iniciando ${pack.name}...`);
-    } catch (e) {
+    } catch {
       toast.error("Error al iniciar.");
     } finally {
       setStatus("idle");
     }
   };
 
+  const isActing = status !== "idle";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.1 }}
-      className="group relative flex flex-col bg-card rounded-xl overflow-hidden border border-white/5 shadow-lg hover:border-accent/30 transition-all duration-300 hover:-translate-y-1 hover:shadow-accent/5"
+      data-testid={`card-modpack-${pack.id}`}
+      className="group relative flex flex-col bg-card rounded-xl overflow-hidden border border-white/5 shadow-lg hover:border-accent/30 transition-all duration-300 hover:-translate-y-1"
     >
+      {pack.updateAvailable && status === "idle" && (
+        <div className="absolute top-3 right-3 z-10 bg-accent text-accent-foreground text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-lg">
+          UPDATE
+        </div>
+      )}
+
       <div className="aspect-[3/4] relative overflow-hidden bg-black/50">
-        <img 
-          src={pack.imageUrl} 
+        <img
+          src={pack.imageUrl}
           alt={pack.name}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 group-hover:brightness-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent opacity-80" />
-        
-        <div className="absolute top-3 left-3 flex gap-2">
+        <div className="absolute top-3 left-3 flex gap-1.5">
           <span className="px-2 py-1 text-xs font-bold bg-black/60 backdrop-blur-md rounded border border-white/10 text-white">
             {pack.minecraftVersion}
           </span>
@@ -72,12 +95,12 @@ function ModpackCard({ pack, index }: { pack: Modpack; index: number }) {
           </span>
         </div>
       </div>
-      
+
       <div className="p-5 flex flex-col flex-1 relative z-10 -mt-12">
         <h3 className="text-xl font-bold tracking-tight text-white mb-1 drop-shadow-md">{pack.name}</h3>
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 h-10">{pack.description}</p>
-        
-        <div className="mt-auto pt-4">
+
+        <div className="mt-auto pt-2">
           {status === "installing" ? (
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -87,30 +110,28 @@ function ModpackCard({ pack, index }: { pack: Modpack; index: number }) {
               <Progress value={progress} className="h-2" />
             </div>
           ) : (
-            <Button 
-              className={`w-full font-bold h-12 transition-all ${
-                pack.installed 
-                  ? "bg-accent hover:bg-accent/90 text-accent-foreground shadow-[0_0_15px_rgba(245,166,35,0.3)]" 
+            <Button
+              data-testid={pack.installed ? `button-play-${pack.id}` : `button-install-${pack.id}`}
+              className={`w-full font-bold h-12 tracking-wide transition-all ${
+                pack.installed
+                  ? "bg-accent hover:bg-accent/90 text-accent-foreground shadow-[0_0_15px_rgba(245,166,35,0.25)]"
                   : "bg-white/10 hover:bg-white/20 text-white"
               }`}
               onClick={pack.installed ? handlePlay : handleInstall}
-              disabled={status !== "idle"}
+              disabled={isActing}
             >
               {status === "updating" && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
               {status === "launching" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {status === "idle" && !pack.installed && <Download className="mr-2 h-4 w-4" />}
               {status === "idle" && pack.installed && <Play className="mr-2 h-4 w-4 fill-current" />}
-              
-              {status === "updating" ? "ACTUALIZANDO..." :
-               status === "launching" ? "INICIANDO..." :
-               pack.installed ? "JUGAR" : "INSTALAR"}
+              {status === "updating"
+                ? "ACTUALIZANDO..."
+                : status === "launching"
+                ? "INICIANDO..."
+                : pack.installed
+                ? "JUGAR"
+                : "INSTALAR"}
             </Button>
-          )}
-          
-          {pack.updateAvailable && status === "idle" && (
-            <div className="absolute top-4 right-4 bg-accent text-accent-foreground text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-lg">
-              UPDATE
-            </div>
           )}
         </div>
       </div>
@@ -119,9 +140,13 @@ function ModpackCard({ pack, index }: { pack: Modpack; index: number }) {
 }
 
 export default function Home() {
-  const { isAuthenticated, username, logout } = useAuth();
+  const { isAuthenticated, username, uuid, mcToken, logout, loadPersistedAuth } = useAuth();
   const [, setLocation] = useLocation();
   const { modpacks, loadModpacks, loading } = useModpacks();
+
+  useEffect(() => {
+    loadPersistedAuth();
+  }, [loadPersistedAuth]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -133,32 +158,67 @@ export default function Home() {
 
   if (!isAuthenticated) return null;
 
+  const handleLogout = async () => {
+    await logout();
+    setLocation("/login");
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="h-16 border-b border-white/5 bg-card/50 backdrop-blur flex items-center justify-between px-6 sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="ALaunchi" className="h-8 object-contain" />
-          <span className="font-bold tracking-tight hidden">ALaunchi</span>
+          <img
+            src="/logo.png"
+            alt="ALaunchi"
+            className="h-8 object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+              const sibling = e.currentTarget.nextElementSibling as HTMLElement | null;
+              sibling?.classList.remove("hidden");
+            }}
+          />
+          <span className="hidden font-bold tracking-tight text-white text-lg">
+            <span className="text-accent">AL</span>aunchi
+          </span>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 mr-2">
-            <Avatar className="h-8 w-8 border border-white/10">
-              <AvatarFallback className="bg-accent/20 text-accent font-bold">
-                {username?.charAt(0) || "U"}
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mr-3 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5">
+            <Avatar className="h-6 w-6 border border-white/10">
+              <AvatarFallback className="bg-accent/20 text-accent text-xs font-bold">
+                {username?.charAt(0)?.toUpperCase() ?? "?"}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm font-medium text-gray-200">{username}</span>
+            <span className="text-sm font-medium text-gray-200" data-testid="text-username">
+              {username}
+            </span>
           </div>
-          
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/admin")} className="text-gray-400 hover:text-white">
-            <span className="sr-only">Admin</span>
-            <div className="text-xs font-mono border border-white/10 px-2 py-1 rounded hover:bg-white/5">ADMIN</div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation("/admin")}
+            data-testid="button-admin"
+            className="text-xs text-gray-400 hover:text-white font-mono border border-white/10 hover:bg-white/5 px-3"
+          >
+            ADMIN
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/settings")} className="text-gray-400 hover:text-white">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLocation("/settings")}
+            data-testid="button-settings"
+            className="text-gray-400 hover:text-white"
+          >
             <Settings className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={logout} className="text-gray-400 hover:text-white">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            data-testid="button-logout"
+            className="text-gray-400 hover:text-red-400"
+          >
             <LogOut className="h-5 w-5" />
           </Button>
         </div>
@@ -169,10 +229,25 @@ export default function Home() {
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-accent" />
           </div>
+        ) : modpacks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
+            <p className="text-lg font-medium">No hay modpacks disponibles</p>
+            <p className="text-sm">Configura tu repositorio de GitHub en Ajustes</p>
+            <Button variant="outline" size="sm" onClick={() => setLocation("/settings")}>
+              Ir a Ajustes
+            </Button>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {modpacks.map((pack, i) => (
-              <ModpackCard key={pack.id} pack={pack} index={i} />
+              <ModpackCard
+                key={pack.id}
+                pack={pack}
+                index={i}
+                authToken={mcToken ?? "offline"}
+                username={username ?? "Player"}
+                uuid={uuid ?? "00000000-0000-0000-0000-000000000000"}
+              />
             ))}
           </div>
         )}
