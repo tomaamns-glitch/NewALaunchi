@@ -1,0 +1,26 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "TuLFzxJH2_TU_DnOXLXsC"
+uri = "file://artifacts/alaunchi/public/vanilla-plus.png"
+type = "image"
+title = "Polished vanilla Minecraft landscape"
+
+[[generated]]
+id = "Eu8vwmW3SPky6_wjA77lj"
+uri = "file://artifacts/alaunchi/public/magic-tech.png"
+type = "image"
+title = "Tech and magic Minecraft scene"
+
+[[generated]]
+id = "dymoi9LQRQLs3h3BodMDA"
+uri = "file://artifacts/alaunchi/public/survival-pro.png"
+type = "image"
+title = "Hardcore survival Minecraft scene"
+
+[[generated]]
+id = "X0ngahxckStwp7Z--cjks"
+uri = "file://artifacts/alaunchi/public/pvp-arena.png"
+type = "image"
+title = "Competitive PVP arena Minecraft scene"

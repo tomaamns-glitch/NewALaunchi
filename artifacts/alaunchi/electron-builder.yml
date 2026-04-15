@@ -1,0 +1,47 @@
+appId: com.alaunchi.launcher
+productName: ALaunchi
+copyright: Copyright © 2025 ALaunchi
+
+directories:
+  buildResources: public
+  output: release
+
+files:
+  - dist/public/**/*
+  - electron/**/*
+  - package.json
+
+extraMetadata:
+  main: electron/main.js
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: public/logo.png
+  artifactName: ALaunchi-Setup-${version}.exe
+
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  icon: public/logo.png
+  artifactName: ALaunchi-${version}.dmg
+  category: public.app-category.games
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  icon: public/logo.png
+  artifactName: ALaunchi-${version}.AppImage
+  category: Game
+
+nsis:
+  oneClick: false
+  allowDirChange: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ALaunchi
+
+publish: null
