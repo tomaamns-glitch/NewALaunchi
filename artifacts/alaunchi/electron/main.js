@@ -506,6 +506,41 @@ ipcMain.handle("ms:poll-token", async (_, { deviceCode }) => {
   });
 });
 
+ipcMain.handle("ms:refresh-token", async (_, { refreshToken }) => {
+  const clientId = "00000000402b5328";
+  return new Promise((resolve, reject) => {
+    const postData = `grant_type=refresh_token&client_id=${clientId}&refresh_token=${encodeURIComponent(refreshToken)}&scope=XboxLive.signin%20offline_access`;
+    const options = {
+      hostname: "login.microsoftonline.com",
+      path: "/consumers/oauth2/v2.0/token",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Length": Buffer.byteLength(postData),
+      },
+    };
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => (data += chunk));
+      res.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.access_token) {
+            resolve({ access_token: parsed.access_token, refresh_token: parsed.refresh_token });
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on("error", reject);
+    req.write(postData);
+    req.end();
+  });
+});
+
 ipcMain.handle("ms:xbox-auth", async (_, { msToken }) => {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { AuthData, isElectron } from "@/services/auth";
+import { AuthData, isElectron, silentRefresh, mcTokenIsExpiredOrNearExpiry } from "@/services/auth";
 
 const eAPI = (window as any).electronAPI;
 
@@ -8,29 +8,54 @@ interface AuthState {
   username: string | null;
   uuid: string | null;
   mcToken: string | null;
+  isRefreshing: boolean;
   setAuth: (data: AuthData) => Promise<void>;
   logout: () => Promise<void>;
   loadPersistedAuth: () => Promise<void>;
 }
 
-function loadFromLocalStorage(): Partial<AuthState> {
+function loadFromLocalStorage(): AuthData | null {
   try {
     const raw = localStorage.getItem("alaunchi_auth");
-    if (!raw) return {};
+    if (!raw) return null;
     const data: AuthData = JSON.parse(raw);
-    if (data.expiresAt && data.expiresAt < Date.now()) {
-      localStorage.removeItem("alaunchi_auth");
-      return {};
-    }
-    return {
-      isAuthenticated: true,
-      username: data.username,
-      uuid: data.uuid,
-      mcToken: data.mcToken,
-    };
+    return data;
   } catch {
-    return {};
+    return null;
   }
+}
+
+function saveToLocalStorage(data: AuthData) {
+  localStorage.setItem("alaunchi_auth", JSON.stringify(data));
+}
+
+async function readAuthData(): Promise<AuthData | null> {
+  if (isElectron) {
+    try {
+      return await eAPI.readAuth();
+    } catch {
+      return null;
+    }
+  }
+  return loadFromLocalStorage();
+}
+
+async function writeAuthData(data: AuthData): Promise<void> {
+  if (isElectron) {
+    await eAPI.writeAuth(data);
+  } else {
+    saveToLocalStorage(data);
+  }
+}
+
+function applyToState(data: AuthData) {
+  return {
+    isAuthenticated: true,
+    username: data.username,
+    uuid: data.uuid,
+    mcToken: data.mcToken,
+    isRefreshing: false,
+  };
 }
 
 export const useAuth = create<AuthState>((set) => ({
@@ -38,49 +63,48 @@ export const useAuth = create<AuthState>((set) => ({
   username: null,
   uuid: null,
   mcToken: null,
+  isRefreshing: false,
 
   loadPersistedAuth: async () => {
-    if (isElectron) {
-      try {
-        const data: AuthData | null = await eAPI.readAuth();
-        if (data && data.expiresAt > Date.now()) {
-          set({
-            isAuthenticated: true,
-            username: data.username,
-            uuid: data.uuid,
-            mcToken: data.mcToken,
-          });
-          return;
-        }
-      } catch {}
+    const data = await readAuthData();
+    if (!data) return;
+
+    const refreshTokenStillValid =
+      data.msRefreshToken && data.msRefreshTokenExpiresAt > Date.now();
+
+    if (!mcTokenIsExpiredOrNearExpiry(data)) {
+      set(applyToState(data));
+      return;
+    }
+
+    if (!refreshTokenStillValid) {
+      return;
+    }
+
+    set({ isRefreshing: true });
+    const refreshed = await silentRefresh(data);
+
+    if (refreshed) {
+      await writeAuthData(refreshed);
+      set(applyToState(refreshed));
     } else {
-      const persisted = loadFromLocalStorage();
-      if (persisted.isAuthenticated) {
-        set(persisted as AuthState);
-      }
+      set({ isRefreshing: false });
     }
   },
 
   setAuth: async (data: AuthData) => {
-    if (isElectron) {
-      await eAPI.writeAuth(data);
-    } else {
-      localStorage.setItem("alaunchi_auth", JSON.stringify(data));
-    }
-    set({
-      isAuthenticated: true,
-      username: data.username,
-      uuid: data.uuid,
-      mcToken: data.mcToken,
-    });
+    await writeAuthData(data);
+    set(applyToState(data));
   },
 
   logout: async () => {
     if (isElectron) {
-      await eAPI.clearAuth();
+      try {
+        await eAPI.clearAuth();
+      } catch {}
     } else {
       localStorage.removeItem("alaunchi_auth");
     }
-    set({ isAuthenticated: false, username: null, uuid: null, mcToken: null });
+    set({ isAuthenticated: false, username: null, uuid: null, mcToken: null, isRefreshing: false });
   },
 }));

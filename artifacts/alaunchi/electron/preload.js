@@ -13,9 +13,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   launchMinecraft: (args) => ipcRenderer.invoke("mc:launch", args),
   checkJava: () => ipcRenderer.invoke("mc:check-java"),
 
-  // Microsoft Auth (Device Code Flow)
+  // Microsoft Auth (Device Code Flow + Silent Refresh)
   startDeviceCodeAuth: () => ipcRenderer.invoke("ms:device-code-auth"),
   pollToken: (args) => ipcRenderer.invoke("ms:poll-token", args),
+  refreshMsToken: (args) => ipcRenderer.invoke("ms:refresh-token", args),
   xboxAuth: (args) => ipcRenderer.invoke("ms:xbox-auth", args),
   xstsAuth: (args) => ipcRenderer.invoke("ms:xsts-auth", args),
   minecraftAuth: (args) => ipcRenderer.invoke("ms:mc-auth", args),
