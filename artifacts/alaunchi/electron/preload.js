@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   updateModpack: (args) => ipcRenderer.invoke("mc:update-modpack", args),
   launchMinecraft: (args) => ipcRenderer.invoke("mc:launch", args),
   checkJava: () => ipcRenderer.invoke("mc:check-java"),
+  installJava: () => ipcRenderer.invoke("mc:install-java"),
 
   // Microsoft Auth (Device Code Flow + Silent Refresh)
   startDeviceCodeAuth: (args) => ipcRenderer.invoke("ms:device-code-auth", args),
@@ -43,5 +44,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     const handler = (_, data) => callback(data);
     ipcRenderer.on("launch-status", handler);
     return () => ipcRenderer.removeListener("launch-status", handler);
+  },
+  onJavaInstallProgress: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on("java-install-progress", handler);
+    return () => ipcRenderer.removeListener("java-install-progress", handler);
   },
 });

@@ -18,10 +18,6 @@ export default function Settings() {
   const [azureClientId, setAzureClientId] = useState("");
 
   useEffect(() => {
-    if (!isAuthenticated) setLocation("/login");
-  }, [isAuthenticated, setLocation]);
-
-  useEffect(() => {
     setRepoUrl(localStorage.getItem("githubRepo") || "");
     setToken(localStorage.getItem("githubToken") || "");
     setAdminPassword(localStorage.getItem("adminPassword") || "admin123");

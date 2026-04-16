@@ -17,7 +17,7 @@ const isDev = process.env.NODE_ENV === "development";
 // Cambia azureClientId por el tuyo antes de distribuir la app.
 // Los usuarios finales no necesitan configurar nada.
 const LAUNCHER_CONFIG = {
-  azureClientId: "",  // <-- pon aquí tu Client ID de Azure
+  azureClientId: "544a65b8-0d01-4dad-bb15-67202be45edc",
 };
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -318,13 +318,46 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
     }
   }
 
+  win?.webContents.send("launch-status", { modpackId, stage: "downloading_libraries" });
+
+  let mainClass = versionJson.mainClass;
+
+  if (loaderType === "fabric" || loaderType === "quilt") {
+    try {
+      const loaderMeta = await fetchJson("https://meta.fabricmc.net/v2/versions/loader");
+      const latestLoader = loaderMeta[0].version;
+      const fabricProfile = await fetchJson(
+        `https://meta.fabricmc.net/v2/versions/loader/${mcVersion}/${latestLoader}/profile/json`
+      );
+      mainClass = fabricProfile.mainClass;
+      for (const lib of fabricProfile.libraries || []) {
+        const parts = lib.name.split(":");
+        const [group, artifact, version] = parts;
+        const groupPath = group.replace(/\./g, "/");
+        const jarName = `${artifact}-${version}.jar`;
+        const relPath = `${groupPath}/${artifact}/${version}/${jarName}`;
+        const libPath = path.join(librariesDir, relPath);
+        await fs.mkdir(path.dirname(libPath), { recursive: true });
+        if (!fsSync.existsSync(libPath)) {
+          const baseUrl = lib.url || "https://repo1.maven.org/maven2/";
+          await downloadFile(baseUrl + relPath, libPath, () => {});
+        }
+        classpath.push(libPath);
+      }
+    } catch (e) {
+      console.error("[Fabric] Error descargando Fabric:", e.message);
+    }
+  }
+
   win?.webContents.send("launch-status", { modpackId, stage: "launching" });
 
-  let javaPath = "java";
-  const customJava = path.join(JAVA_DIR, "bin", "java");
-  if (fsSync.existsSync(customJava)) javaPath = customJava;
+  let javaPath = await getJavaPath();
+  if (!javaPath) {
+    try { await execAsync("java -version"); javaPath = "java"; }
+    catch { throw new Error("Java no encontrado. Ve a Ajustes e instala Java primero."); }
+  }
 
-  const mcArgs = buildLaunchArgs(versionJson, {
+  const mcArgs = buildLaunchArgs({ ...versionJson, mainClass }, {
     username: username || "Player",
     uuid: uuid || "00000000-0000-0000-0000-000000000000",
     accessToken: authToken || "offline",
@@ -381,14 +414,74 @@ function buildLaunchArgs(versionJson, opts) {
   return [...jvmArgs, versionJson.mainClass, ...gameArgs];
 }
 
-ipcMain.handle("mc:check-java", async () => {
-  try {
-    const { stdout } = await execAsync("java -version");
-    return { available: true, version: stdout.trim() };
-  } catch {
-    const customJava = path.join(JAVA_DIR, "bin", "java");
-    return { available: fsSync.existsSync(customJava), version: "custom" };
+async function getJavaPath() {
+  const homeFile = path.join(JAVA_DIR, ".java-home");
+  if (fsSync.existsSync(homeFile)) {
+    const jreDir = (await fs.readFile(homeFile, "utf8")).trim();
+    const bin = path.join(jreDir, "bin", process.platform === "win32" ? "java.exe" : "java");
+    if (fsSync.existsSync(bin)) return bin;
   }
+  return null;
+}
+
+ipcMain.handle("mc:check-java", async () => {
+  const customPath = await getJavaPath();
+  if (customPath) return { available: true, version: "bundled", path: customPath };
+  try {
+    const { stdout, stderr } = await execAsync("java -version 2>&1");
+    return { available: true, version: (stdout || stderr).split("\n")[0].trim() };
+  } catch {
+    return { available: false };
+  }
+});
+
+ipcMain.handle("mc:install-java", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const platform = process.platform;
+  const arch = process.arch;
+  const adoptiumOS = platform === "win32" ? "windows" : platform === "darwin" ? "mac" : "linux";
+  const adoptiumArch = arch === "arm64" ? "aarch64" : "x64";
+
+  win?.webContents.send("java-install-progress", { stage: "fetching", progress: 0 });
+
+  const releases = await fetchJson(
+    `https://api.adoptium.net/v3/assets/latest/21/hotspot?architecture=${adoptiumArch}&image_type=jre&os=${adoptiumOS}&vendor=eclipse`
+  );
+  if (!releases || releases.length === 0) throw new Error("No se encontró JRE 21 en Adoptium");
+
+  const pkg = releases[0].binary.package;
+  const downloadUrl = pkg.link;
+  const filename = pkg.name;
+  const isZip = filename.endsWith(".zip");
+  const downloadPath = path.join(JAVA_DIR, filename);
+
+  win?.webContents.send("java-install-progress", { stage: "downloading", progress: 0 });
+  await downloadFile(downloadUrl, downloadPath, (p) => {
+    win?.webContents.send("java-install-progress", { stage: "downloading", progress: p });
+  });
+
+  win?.webContents.send("java-install-progress", { stage: "extracting", progress: 0 });
+
+  if (isZip) {
+    await execAsync(
+      `powershell -NoProfile -Command "Expand-Archive -Force -Path '${downloadPath}' -DestinationPath '${JAVA_DIR}'"`
+    );
+  } else {
+    await execAsync(`tar -xzf "${downloadPath}" -C "${JAVA_DIR}"`);
+  }
+
+  const entries = await fs.readdir(JAVA_DIR, { withFileTypes: true });
+  const jreFolder = entries.find(
+    (e) => e.isDirectory() && (e.name.startsWith("jdk") || e.name.startsWith("jre"))
+  );
+  if (!jreFolder) throw new Error("No se encontró la carpeta del JRE extraído");
+
+  const jrePath = path.join(JAVA_DIR, jreFolder.name);
+  await fs.writeFile(path.join(JAVA_DIR, ".java-home"), jrePath);
+  await fs.unlink(downloadPath).catch(() => {});
+
+  win?.webContents.send("java-install-progress", { stage: "done", progress: 100 });
+  return { success: true, jrePath };
 });
 
 ipcMain.handle("ms:device-code-auth", async (_, args) => {

@@ -1,15 +1,17 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useModpacks } from "@/hooks/use-modpacks";
 import { useLocation } from "wouter";
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Settings, LogOut, Download, Play, RefreshCw, Loader2 } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Settings, LogOut, Download, Play, RefreshCw, Loader2, AlertTriangle, Coffee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { installModpack, launchMinecraft } from "@/services/electron";
 import { toast } from "sonner";
 import { Modpack } from "@/services/github";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+
+const api = (window as any).electronAPI;
 
 interface ModpackCardProps {
   pack: Modpack;
@@ -22,7 +24,26 @@ interface ModpackCardProps {
 function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProps) {
   const [status, setStatus] = useState<"idle" | "installing" | "updating" | "launching">("idle");
   const [progress, setProgress] = useState(0);
+  const [launchStage, setLaunchStage] = useState("");
   const { updateModpackStatus } = useModpacks();
+
+  useEffect(() => {
+    if (!api) return;
+    const off = api.onLaunchStatus((data: any) => {
+      if (data.modpackId === pack.id) {
+        const stages: Record<string, string> = {
+          preparing: "Preparando...",
+          downloading_client: "Descargando cliente...",
+          downloading_assets: "Descargando assets...",
+          downloading_libraries: "Descargando librerías...",
+          launching: "Iniciando...",
+          launched: "¡Lanzado!",
+        };
+        setLaunchStage(stages[data.stage] || data.stage);
+      }
+    });
+    return off;
+  }, [pack.id]);
 
   const handleInstall = async () => {
     setStatus("installing");
@@ -31,8 +52,8 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
       await installModpack(pack.id, [], (p) => setProgress(p));
       updateModpackStatus(pack.id, { installed: true, installedVersion: pack.version });
       toast.success(`${pack.name} instalado correctamente.`);
-    } catch {
-      toast.error("Error al instalar.");
+    } catch (e: any) {
+      toast.error(e?.message || "Error al instalar.");
     } finally {
       setStatus("idle");
     }
@@ -47,6 +68,7 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
         toast.success(`${pack.name} actualizado.`);
       }
       setStatus("launching");
+      setLaunchStage("Preparando...");
       await launchMinecraft({
         modpackId: pack.id,
         mcVersion: pack.minecraftVersion,
@@ -55,11 +77,12 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
         username,
         uuid,
       });
-      toast.success(`Iniciando ${pack.name}...`);
-    } catch {
-      toast.error("Error al iniciar.");
+      toast.success(`¡${pack.name} iniciado!`);
+    } catch (e: any) {
+      toast.error(e?.message || "Error al iniciar.");
     } finally {
       setStatus("idle");
+      setLaunchStage("");
     }
   };
 
@@ -101,13 +124,21 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 h-10">{pack.description}</p>
 
         <div className="mt-auto pt-2">
-          {status === "installing" ? (
+          {(status === "installing" || status === "updating") ? (
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Instalando...</span>
+                <span>{status === "updating" ? "Actualizando..." : "Instalando..."}</span>
                 <span>{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} className="h-2" />
+            </div>
+          ) : status === "launching" ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>{launchStage}</span>
+              </div>
+              <Progress value={undefined} className="h-2 animate-pulse" />
             </div>
           ) : (
             <Button
@@ -120,17 +151,10 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
               onClick={pack.installed ? handlePlay : handleInstall}
               disabled={isActing}
             >
-              {status === "updating" && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
-              {status === "launching" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {status === "idle" && !pack.installed && <Download className="mr-2 h-4 w-4" />}
-              {status === "idle" && pack.installed && <Play className="mr-2 h-4 w-4 fill-current" />}
-              {status === "updating"
-                ? "ACTUALIZANDO..."
-                : status === "launching"
-                ? "INICIANDO..."
-                : pack.installed
-                ? "JUGAR"
-                : "INSTALAR"}
+              {!pack.installed && <Download className="mr-2 h-4 w-4" />}
+              {pack.installed && pack.updateAvailable && <RefreshCw className="mr-2 h-4 w-4" />}
+              {pack.installed && !pack.updateAvailable && <Play className="mr-2 h-4 w-4 fill-current" />}
+              {pack.installed ? (pack.updateAvailable ? "ACTUALIZAR Y JUGAR" : "JUGAR") : "INSTALAR"}
             </Button>
           )}
         </div>
@@ -139,10 +163,18 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
   );
 }
 
+type JavaStatus = "checking" | "ok" | "missing";
+type JavaInstallStage = "idle" | "fetching" | "downloading" | "extracting" | "done";
+
 export default function Home() {
   const { isAuthenticated, username, uuid, mcToken, logout, loadPersistedAuth } = useAuth();
   const [, setLocation] = useLocation();
   const { modpacks, loadModpacks, loading } = useModpacks();
+
+  const [javaStatus, setJavaStatus] = useState<JavaStatus>("checking");
+  const [javaInstalling, setJavaInstalling] = useState(false);
+  const [javaStage, setJavaStage] = useState<JavaInstallStage>("idle");
+  const [javaProgress, setJavaProgress] = useState(0);
 
   useEffect(() => {
     loadPersistedAuth();
@@ -153,14 +185,61 @@ export default function Home() {
       setLocation("/login");
     } else {
       loadModpacks();
+      checkJava();
     }
   }, [isAuthenticated, setLocation, loadModpacks]);
+
+  useEffect(() => {
+    if (!api) return;
+    const off = api.onJavaInstallProgress((data: any) => {
+      setJavaStage(data.stage);
+      if (data.progress !== undefined) setJavaProgress(data.progress);
+      if (data.stage === "done") {
+        setJavaInstalling(false);
+        setJavaStatus("ok");
+        toast.success("Java instalado correctamente.");
+      }
+    });
+    return off;
+  }, []);
+
+  const checkJava = useCallback(async () => {
+    if (!api) return;
+    try {
+      const result = await api.checkJava();
+      setJavaStatus(result.available ? "ok" : "missing");
+    } catch {
+      setJavaStatus("missing");
+    }
+  }, []);
+
+  const handleInstallJava = async () => {
+    if (!api) return;
+    setJavaInstalling(true);
+    setJavaStage("fetching");
+    setJavaProgress(0);
+    try {
+      await api.installJava();
+    } catch (e: any) {
+      toast.error("Error instalando Java: " + (e?.message || "desconocido"));
+      setJavaInstalling(false);
+      setJavaStage("idle");
+    }
+  };
 
   if (!isAuthenticated) return null;
 
   const handleLogout = async () => {
     await logout();
     setLocation("/login");
+  };
+
+  const javaStageLabel: Record<JavaInstallStage, string> = {
+    idle: "",
+    fetching: "Buscando JRE 21...",
+    downloading: `Descargando Java... ${javaProgress}%`,
+    extracting: "Extrayendo...",
+    done: "¡Listo!",
   };
 
   return (
@@ -223,6 +302,44 @@ export default function Home() {
           </Button>
         </div>
       </header>
+
+      <AnimatePresence>
+        {javaStatus === "missing" && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-amber-950/60 border-b border-amber-500/30 px-6 py-3 flex items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+              <span className="text-sm text-amber-200">
+                Java no detectado — necesario para lanzar Minecraft.
+              </span>
+            </div>
+            {javaInstalling ? (
+              <div className="flex items-center gap-3 min-w-[200px]">
+                <Loader2 className="h-4 w-4 animate-spin text-amber-400 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs text-amber-300 mb-1">{javaStageLabel[javaStage]}</p>
+                  {javaStage === "downloading" && (
+                    <Progress value={javaProgress} className="h-1.5" />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                onClick={handleInstallJava}
+                className="bg-amber-500 hover:bg-amber-400 text-black font-bold shrink-0"
+              >
+                <Coffee className="mr-2 h-3.5 w-3.5" />
+                Instalar Java automáticamente
+              </Button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main className="flex-1 p-8 max-w-7xl mx-auto w-full">
         {loading ? (
