@@ -1,19 +1,15 @@
-import { app, BrowserWindow, ipcMain, shell, dialog } from "electron";
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs/promises";
-import fsSync from "fs";
-import https from "https";
-import http from "http";
-import { spawn, exec } from "child_process";
-import { promisify } from "util";
-import crypto from "crypto";
-import { createWriteStream } from "fs";
-import os from "os";
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const path = require("path");
+const fs = require("fs/promises");
+const fsSync = require("fs");
+const https = require("https");
+const http = require("http");
+const { spawn, exec } = require("child_process");
+const { promisify } = require("util");
+const crypto = require("crypto");
+const os = require("os");
 
 const execAsync = promisify(exec);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -43,6 +39,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: !isDev,
+      sandbox: false,
     },
     icon: path.join(__dirname, "../public/logo.png"),
     show: false,
@@ -56,7 +53,7 @@ function createWindow() {
     win.loadURL("http://localhost:5173");
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    win.loadFile(path.join(__dirname, "../dist/public/index.html"));
+    win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }
 
   ipcMain.on("window-minimize", () => win.minimize());
@@ -71,7 +68,7 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   await ensureDirs();
-  const win = createWindow();
+  createWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -84,36 +81,25 @@ app.on("window-all-closed", () => {
 
 function downloadFile(url, destPath, onProgress) {
   return new Promise((resolve, reject) => {
-    const file = createWriteStream(destPath);
+    const file = fsSync.createWriteStream(destPath);
     const protocol = url.startsWith("https") ? https : http;
 
     const request = protocol.get(url, (res) => {
       if (res.statusCode === 301 || res.statusCode === 302) {
         file.close();
         fsSync.unlinkSync(destPath);
-        downloadFile(res.headers.location, destPath, onProgress)
-          .then(resolve)
-          .catch(reject);
+        downloadFile(res.headers.location, destPath, onProgress).then(resolve).catch(reject);
         return;
       }
-
       const total = parseInt(res.headers["content-length"] || "0", 10);
       let downloaded = 0;
-
       res.on("data", (chunk) => {
         downloaded += chunk.length;
-        if (onProgress && total > 0) {
-          onProgress(Math.round((downloaded / total) * 100));
-        }
+        if (onProgress && total > 0) onProgress(Math.round((downloaded / total) * 100));
       });
-
       res.pipe(file);
-      file.on("finish", () => {
-        file.close();
-        resolve();
-      });
+      file.on("finish", () => { file.close(); resolve(); });
     });
-
     request.on("error", (err) => {
       file.close();
       fsSync.unlink(destPath, () => {});
@@ -129,23 +115,10 @@ function fetchJson(url) {
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(new Error("Invalid JSON from " + url));
-        }
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error("Invalid JSON from " + url)); }
       });
     }).on("error", reject);
-  });
-}
-
-function sha1File(filePath) {
-  return new Promise((resolve, reject) => {
-    const hash = crypto.createHash("sha1");
-    const stream = fsSync.createReadStream(filePath);
-    stream.on("error", reject);
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("end", () => resolve(hash.digest("hex")));
   });
 }
 
@@ -168,7 +141,7 @@ ipcMain.handle("mc:get-installed-modpacks", async () => {
   }
 });
 
-ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files, token }) => {
+ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files }) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   const instanceDir = path.join(INSTANCES_DIR, modpackId);
   const modsDir = path.join(instanceDir, "mods");
@@ -182,15 +155,13 @@ ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files, 
 
   win?.webContents.send("install-progress", { modpackId, stage: "downloading", progress: 0 });
 
-  for (let i = 0; i < files.length; i++) {
+  for (let i = 0; i < (files || []).length; i++) {
     const file = files[i];
     if (!file.downloadUrl) continue;
-
     let destDir = instanceDir;
     if (file.type === "mod") destDir = modsDir;
     else if (file.type === "resourcepack") destDir = resourcepacksDir;
     else if (file.type === "shader") destDir = shaderpacks;
-
     const destPath = path.join(destDir, file.filename);
     await downloadFile(file.downloadUrl, destPath, (p) => {
       const overall = Math.round(((i + p / 100) / files.length) * 100);
@@ -200,10 +171,10 @@ ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files, 
 
   const meta = {
     id: modpackId,
-    name: modpack.name,
-    version: modpack.version,
-    minecraftVersion: modpack.minecraftVersion,
-    loaderType: modpack.loaderType,
+    name: modpack?.name ?? modpackId,
+    version: modpack?.version ?? "1.0.0",
+    minecraftVersion: modpack?.minecraftVersion ?? "1.20.4",
+    loaderType: modpack?.loaderType ?? "vanilla",
     installedAt: new Date().toISOString(),
   };
   await fs.writeFile(path.join(instanceDir, "alaunchi-meta.json"), JSON.stringify(meta, null, 2));
@@ -218,7 +189,7 @@ ipcMain.handle("mc:update-modpack", async (event, { modpackId, filesToDelete, fi
 
   win?.webContents.send("install-progress", { modpackId, stage: "updating", progress: 0 });
 
-  for (const filename of filesToDelete) {
+  for (const filename of (filesToDelete || [])) {
     const possiblePaths = [
       path.join(instanceDir, "mods", filename),
       path.join(instanceDir, "resourcepacks", filename),
@@ -226,16 +197,13 @@ ipcMain.handle("mc:update-modpack", async (event, { modpackId, filesToDelete, fi
       path.join(instanceDir, filename),
     ];
     for (const p of possiblePaths) {
-      if (fsSync.existsSync(p)) {
-        await fs.unlink(p);
-        break;
-      }
+      if (fsSync.existsSync(p)) { await fs.unlink(p); break; }
     }
   }
 
   win?.webContents.send("install-progress", { modpackId, stage: "updating", progress: 50 });
 
-  for (let i = 0; i < filesToAdd.length; i++) {
+  for (let i = 0; i < (filesToAdd || []).length; i++) {
     const file = filesToAdd[i];
     if (!file.downloadUrl) continue;
     let destDir = instanceDir;
@@ -270,21 +238,18 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
   await fs.mkdir(nativesDir, { recursive: true });
 
   win?.webContents.send("launch-status", { modpackId, stage: "downloading_client" });
-
   const clientJarPath = path.join(versionDir, `${mcVersion}.jar`);
   if (!fsSync.existsSync(clientJarPath)) {
     await downloadFile(versionJson.downloads.client.url, clientJarPath, () => {});
   }
 
   win?.webContents.send("launch-status", { modpackId, stage: "downloading_assets" });
-  const assetIndexUrl = versionJson.assetIndex.url;
   const assetIndexId = versionJson.assetIndex.id;
   const assetIndexDir = path.join(assetsDir, "indexes");
   await fs.mkdir(assetIndexDir, { recursive: true });
   const assetIndexPath = path.join(assetIndexDir, `${assetIndexId}.json`);
-
   if (!fsSync.existsSync(assetIndexPath)) {
-    await downloadFile(assetIndexUrl, assetIndexPath, () => {});
+    await downloadFile(versionJson.assetIndex.url, assetIndexPath, () => {});
   }
 
   const assetIndex = JSON.parse(await fs.readFile(assetIndexPath, "utf8"));
@@ -303,47 +268,35 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
         await fs.mkdir(assetDir, { recursive: true });
         const assetPath = path.join(assetDir, hash);
         if (!fsSync.existsSync(assetPath)) {
-          const url = `https://resources.download.minecraft.net/${prefix}/${hash}`;
-          await downloadFile(url, assetPath, () => {});
+          await downloadFile(`https://resources.download.minecraft.net/${prefix}/${hash}`, assetPath, () => {});
         }
       })
     );
     downloadedAssets += batch.length;
     win?.webContents.send("launch-status", {
-      modpackId,
-      stage: "downloading_assets",
+      modpackId, stage: "downloading_assets",
       progress: Math.round((downloadedAssets / assetEntries.length) * 100),
     });
   }
 
   win?.webContents.send("launch-status", { modpackId, stage: "downloading_libraries" });
   const classpath = [clientJarPath];
+  const currentPlatform = process.platform.replace("win32", "windows").replace("darwin", "osx");
 
   for (const lib of versionJson.libraries || []) {
     if (lib.rules) {
       const allowed = lib.rules.every((rule) => {
-        if (rule.action === "allow") {
-          if (!rule.os) return true;
-          return rule.os.name === process.platform.replace("win32", "windows").replace("darwin", "osx");
-        }
-        if (rule.action === "disallow") {
-          if (!rule.os) return false;
-          return rule.os.name !== process.platform.replace("win32", "windows").replace("darwin", "osx");
-        }
+        if (rule.action === "allow") return !rule.os || rule.os.name === currentPlatform;
+        if (rule.action === "disallow") return rule.os && rule.os.name !== currentPlatform;
         return true;
       });
       if (!allowed) continue;
     }
-
     if (lib.downloads?.artifact) {
       const artifact = lib.downloads.artifact;
       const libPath = path.join(librariesDir, artifact.path);
-      const libDir = path.dirname(libPath);
-      await fs.mkdir(libDir, { recursive: true });
-
-      if (!fsSync.existsSync(libPath)) {
-        await downloadFile(artifact.url, libPath, () => {});
-      }
+      await fs.mkdir(path.dirname(libPath), { recursive: true });
+      if (!fsSync.existsSync(libPath)) await downloadFile(artifact.url, libPath, () => {});
       classpath.push(libPath);
     }
   }
@@ -353,9 +306,7 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
   if (fsSync.existsSync(modsDir)) {
     const modFiles = await fs.readdir(modsDir);
     for (const mod of modFiles) {
-      if (mod.endsWith(".jar")) {
-        classpath.push(path.join(modsDir, mod));
-      }
+      if (mod.endsWith(".jar")) classpath.push(path.join(modsDir, mod));
     }
   }
 
@@ -388,17 +339,12 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
 
 function buildLaunchArgs(versionJson, opts) {
   const jvmArgs = [
-    `-Xmx2G`,
-    `-Xms512M`,
+    "-Xmx2G", "-Xms512M",
     `-Djava.library.path=${opts.nativesDir}`,
-    `-Dminecraft.launcher.brand=ALaunchi`,
-    `-Dminecraft.launcher.version=1.0`,
-    `-cp`,
-    opts.classpath,
+    "-Dminecraft.launcher.brand=ALaunchi",
+    "-Dminecraft.launcher.version=1.0",
+    "-cp", opts.classpath,
   ];
-
-  const gameArgs = [];
-  const rawArgs = versionJson.arguments?.game || versionJson.minecraftArguments?.split(" ") || [];
 
   const argMap = {
     "${auth_player_name}": opts.username,
@@ -414,12 +360,12 @@ function buildLaunchArgs(versionJson, opts) {
     "${resolution_height}": opts.height,
   };
 
+  const rawArgs = versionJson.arguments?.game || versionJson.minecraftArguments?.split(" ") || [];
+  const gameArgs = [];
   for (const arg of rawArgs) {
     if (typeof arg === "string") {
       let resolved = arg;
-      for (const [k, v] of Object.entries(argMap)) {
-        resolved = resolved.replace(k, v);
-      }
+      for (const [k, v] of Object.entries(argMap)) resolved = resolved.replace(k, v);
       gameArgs.push(resolved);
     }
   }
@@ -441,32 +387,20 @@ ipcMain.handle("ms:device-code-auth", async () => {
   const clientId = "00000000402b5328";
   return new Promise((resolve, reject) => {
     const postData = `client_id=${clientId}&scope=XboxLive.signin%20offline_access`;
-    const options = {
+    const req = https.request({
       hostname: "login.microsoftonline.com",
       path: "/consumers/oauth2/v2.0/devicecode",
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Content-Length": Buffer.byteLength(postData),
-      },
-    };
-    const req = https.request(options, (res) => {
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "Content-Length": Buffer.byteLength(postData) },
+    }, (res) => {
       let data = "";
-      res.on("data", (chunk) => (data += chunk));
+      res.on("data", (c) => (data += c));
       res.on("end", () => {
         try {
-          const parsed = JSON.parse(data);
-          shell.openExternal(parsed.verification_uri);
-          resolve({
-            userCode: parsed.user_code,
-            verificationUri: parsed.verification_uri,
-            expiresIn: parsed.expires_in,
-            interval: parsed.interval,
-            deviceCode: parsed.device_code,
-          });
-        } catch (e) {
-          reject(e);
-        }
+          const p = JSON.parse(data);
+          shell.openExternal(p.verification_uri);
+          resolve({ userCode: p.user_code, verificationUri: p.verification_uri, expiresIn: p.expires_in, interval: p.interval, deviceCode: p.device_code });
+        } catch (e) { reject(e); }
       });
     });
     req.on("error", reject);
@@ -479,26 +413,15 @@ ipcMain.handle("ms:poll-token", async (_, { deviceCode }) => {
   const clientId = "00000000402b5328";
   return new Promise((resolve, reject) => {
     const postData = `grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id=${clientId}&device_code=${deviceCode}`;
-    const options = {
+    const req = https.request({
       hostname: "login.microsoftonline.com",
       path: "/consumers/oauth2/v2.0/token",
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Content-Length": Buffer.byteLength(postData),
-      },
-    };
-    const req = https.request(options, (res) => {
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "Content-Length": Buffer.byteLength(postData) },
+    }, (res) => {
       let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve(parsed);
-        } catch (e) {
-          reject(e);
-        }
-      });
+      res.on("data", (c) => (data += c));
+      res.on("end", () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
     });
     req.on("error", reject);
     req.write(postData);
@@ -510,29 +433,19 @@ ipcMain.handle("ms:refresh-token", async (_, { refreshToken }) => {
   const clientId = "00000000402b5328";
   return new Promise((resolve, reject) => {
     const postData = `grant_type=refresh_token&client_id=${clientId}&refresh_token=${encodeURIComponent(refreshToken)}&scope=XboxLive.signin%20offline_access`;
-    const options = {
+    const req = https.request({
       hostname: "login.microsoftonline.com",
       path: "/consumers/oauth2/v2.0/token",
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Content-Length": Buffer.byteLength(postData),
-      },
-    };
-    const req = https.request(options, (res) => {
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "Content-Length": Buffer.byteLength(postData) },
+    }, (res) => {
       let data = "";
-      res.on("data", (chunk) => (data += chunk));
+      res.on("data", (c) => (data += c));
       res.on("end", () => {
         try {
-          const parsed = JSON.parse(data);
-          if (parsed.access_token) {
-            resolve({ access_token: parsed.access_token, refresh_token: parsed.refresh_token });
-          } else {
-            resolve(null);
-          }
-        } catch (e) {
-          reject(e);
-        }
+          const p = JSON.parse(data);
+          resolve(p.access_token ? { access_token: p.access_token, refresh_token: p.refresh_token } : null);
+        } catch (e) { reject(e); }
       });
     });
     req.on("error", reject);
@@ -544,34 +457,21 @@ ipcMain.handle("ms:refresh-token", async (_, { refreshToken }) => {
 ipcMain.handle("ms:xbox-auth", async (_, { msToken }) => {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      Properties: {
-        AuthMethod: "RPS",
-        SiteName: "user.auth.xboxlive.com",
-        RpsTicket: `d=${msToken}`,
-      },
+      Properties: { AuthMethod: "RPS", SiteName: "user.auth.xboxlive.com", RpsTicket: `d=${msToken}` },
       RelyingParty: "http://auth.xboxlive.com",
       TokenType: "JWT",
     });
-    const options = {
+    const req = https.request({
       hostname: "user.auth.xboxlive.com",
       path: "/user/authenticate",
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(body),
-        Accept: "application/json",
-      },
-    };
-    const req = https.request(options, (res) => {
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body), Accept: "application/json" },
+    }, (res) => {
       let data = "";
-      res.on("data", (chunk) => (data += chunk));
+      res.on("data", (c) => (data += c));
       res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve({ xblToken: parsed.Token, userHash: parsed.DisplayClaims?.xui?.[0]?.uhs });
-        } catch (e) {
-          reject(e);
-        }
+        try { const p = JSON.parse(data); resolve({ xblToken: p.Token, userHash: p.DisplayClaims?.xui?.[0]?.uhs }); }
+        catch (e) { reject(e); }
       });
     });
     req.on("error", reject);
@@ -587,26 +487,17 @@ ipcMain.handle("ms:xsts-auth", async (_, { xblToken }) => {
       RelyingParty: "rp://api.minecraftservices.com/",
       TokenType: "JWT",
     });
-    const options = {
+    const req = https.request({
       hostname: "xsts.auth.xboxlive.com",
       path: "/xsts/authorize",
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(body),
-        Accept: "application/json",
-      },
-    };
-    const req = https.request(options, (res) => {
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body), Accept: "application/json" },
+    }, (res) => {
       let data = "";
-      res.on("data", (chunk) => (data += chunk));
+      res.on("data", (c) => (data += c));
       res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve({ xstsToken: parsed.Token, userHash: parsed.DisplayClaims?.xui?.[0]?.uhs });
-        } catch (e) {
-          reject(e);
-        }
+        try { const p = JSON.parse(data); resolve({ xstsToken: p.Token, userHash: p.DisplayClaims?.xui?.[0]?.uhs }); }
+        catch (e) { reject(e); }
       });
     });
     req.on("error", reject);
@@ -618,25 +509,17 @@ ipcMain.handle("ms:xsts-auth", async (_, { xblToken }) => {
 ipcMain.handle("ms:mc-auth", async (_, { xstsToken, userHash }) => {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({ identityToken: `XBL3.0 x=${userHash};${xstsToken}` });
-    const options = {
+    const req = https.request({
       hostname: "api.minecraftservices.com",
       path: "/authentication/login_with_xbox",
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(body),
-      },
-    };
-    const req = https.request(options, (res) => {
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+    }, (res) => {
       let data = "";
-      res.on("data", (chunk) => (data += chunk));
+      res.on("data", (c) => (data += c));
       res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve({ mcToken: parsed.access_token, mcUsername: parsed.username });
-        } catch (e) {
-          reject(e);
-        }
+        try { const p = JSON.parse(data); resolve({ mcToken: p.access_token }); }
+        catch (e) { reject(e); }
       });
     });
     req.on("error", reject);
@@ -647,60 +530,43 @@ ipcMain.handle("ms:mc-auth", async (_, { xstsToken, userHash }) => {
 
 ipcMain.handle("ms:mc-profile", async (_, { mcToken }) => {
   return new Promise((resolve, reject) => {
-    const options = {
+    https.get({
       hostname: "api.minecraftservices.com",
       path: "/minecraft/profile",
-      method: "GET",
       headers: { Authorization: `Bearer ${mcToken}` },
-    };
-    https.get(options, (res) => {
+    }, (res) => {
       let data = "";
-      res.on("data", (chunk) => (data += chunk));
+      res.on("data", (c) => (data += c));
       res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          resolve({ username: parsed.name, uuid: parsed.id });
-        } catch (e) {
-          reject(e);
-        }
+        try { const p = JSON.parse(data); resolve({ username: p.name, uuid: p.id }); }
+        catch (e) { reject(e); }
       });
     }).on("error", reject);
   });
 });
 
 ipcMain.handle("fs:read-settings", async () => {
-  const settingsPath = path.join(APP_DATA_DIR, "settings.json");
-  try {
-    return JSON.parse(await fs.readFile(settingsPath, "utf8"));
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(await fs.readFile(path.join(APP_DATA_DIR, "settings.json"), "utf8")); }
+  catch { return {}; }
 });
 
 ipcMain.handle("fs:write-settings", async (_, settings) => {
-  const settingsPath = path.join(APP_DATA_DIR, "settings.json");
-  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2));
+  await fs.writeFile(path.join(APP_DATA_DIR, "settings.json"), JSON.stringify(settings, null, 2));
   return { success: true };
 });
 
 ipcMain.handle("fs:read-auth", async () => {
-  const authPath = path.join(APP_DATA_DIR, "auth.json");
-  try {
-    return JSON.parse(await fs.readFile(authPath, "utf8"));
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(await fs.readFile(path.join(APP_DATA_DIR, "auth.json"), "utf8")); }
+  catch { return null; }
 });
 
 ipcMain.handle("fs:write-auth", async (_, auth) => {
-  const authPath = path.join(APP_DATA_DIR, "auth.json");
-  await fs.writeFile(authPath, JSON.stringify(auth, null, 2));
+  await fs.writeFile(path.join(APP_DATA_DIR, "auth.json"), JSON.stringify(auth, null, 2));
   return { success: true };
 });
 
 ipcMain.handle("fs:clear-auth", async () => {
-  const authPath = path.join(APP_DATA_DIR, "auth.json");
-  try { await fs.unlink(authPath); } catch {}
+  try { await fs.unlink(path.join(APP_DATA_DIR, "auth.json")); } catch {}
   return { success: true };
 });
 
@@ -709,13 +575,12 @@ ipcMain.handle("github:fetch-modpacks", async (_, { repoUrl }) => {
     const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
     if (!match) throw new Error("Invalid GitHub URL");
     const [, owner, repo] = match;
-    const raw = `https://raw.githubusercontent.com/${owner}/${repo}/main/modpacks.json`;
-    return await fetchJson(raw);
+    return await fetchJson(`https://raw.githubusercontent.com/${owner}/${repo}/main/modpacks.json`);
   } catch (e) {
     throw new Error("Could not load modpacks from GitHub: " + e.message);
   }
 });
 
-ipcMain.handle("github:create-release", async (_, { token, repoUrl, tagName, files }) => {
-  return { success: true, message: "Release created (implement with GitHub API)" };
+ipcMain.handle("github:create-release", async () => {
+  return { success: true };
 });

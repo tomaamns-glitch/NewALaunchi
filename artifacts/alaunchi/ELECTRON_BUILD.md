@@ -1,57 +1,69 @@
-# ALaunchi — Empaquetar como App de Escritorio
+# ALaunchi — Modo desarrollo y empaquetado
 
 ## Pre-requisitos
 
-- Node.js 20+ y pnpm instalados localmente
-- Git
+- **Node.js 20 o superior** — https://nodejs.org
+- **pnpm** — instalar con `npm install -g pnpm`
+- **Java 17+** — para lanzar Minecraft (https://adoptium.net)
 
-## Pasos para empaquetar
+---
 
-### 1. Clonar y instalar dependencias
+## Modo desarrollo (app de escritorio)
 
 ```bash
-git clone <tu-repo>
+# 1. Entra a la carpeta del launcher
 cd artifacts/alaunchi
+
+# 2. Instala todas las dependencias (incluye Electron)
 pnpm install
-pnpm add -D electron electron-builder
+
+# 3. Arranca en modo desarrollo
+pnpm run electron:dev
 ```
 
-### 2. Construir el frontend
+Esto levanta dos procesos a la vez:
+- **VITE** — servidor de desarrollo en `http://localhost:5173`
+- **ELECTRON** — ventana nativa que carga ese servidor
 
-```bash
-pnpm build
-```
+Los cambios en el código se reflejan en caliente (hot reload) en la ventana de Electron.
+Las DevTools de Chromium se abren automáticamente en una ventana separada.
 
-### 3. Empaquetar para tu sistema operativo
+---
+
+## Empaquetar para distribución
 
 ```bash
 # Windows (.exe instalador)
-pnpm dlx electron-builder --win
+pnpm run electron:build:win
 
 # macOS (.dmg)
-pnpm dlx electron-builder --mac
+pnpm run electron:build:mac
 
 # Linux (.AppImage)
-pnpm dlx electron-builder --linux
+pnpm run electron:build:linux
 ```
 
-Los ejecutables se generarán en la carpeta `release/`.
+Los ejecutables se generan en la carpeta `release/`.
 
-## Estructura de datos en GitHub
+> **Nota para Windows:** La primera vez puede tardar unos minutos porque electron-builder descarga las herramientas nativas de empaquetado.
 
-Para que el launcher cargue tus modpacks desde GitHub, crea un repositorio público con esta estructura:
+---
+
+## Estructura del repositorio de modpacks en GitHub
+
+Crea un repositorio público (o privado con token) con esta estructura:
 
 ```
 tu-repo/
-  modpacks.json           ← Lista de todos los modpacks
+  modpacks.json                     ← lista de todos los modpacks
   modpacks/
     vanilla-plus/
-      manifest.json       ← Archivos del modpack y versión actual
+      manifest.json                 ← archivos y URLs de descarga
     survival-pro/
       manifest.json
 ```
 
-### Formato de `modpacks.json`
+### `modpacks.json`
 
 ```json
 [
@@ -62,34 +74,44 @@ tu-repo/
     "minecraftVersion": "1.20.4",
     "loaderType": "vanilla",
     "version": "1.0.0",
-    "imageUrl": "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/modpacks/vanilla-plus/cover.png",
+    "imageUrl": "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/modpacks/vanilla-plus/cover.jpg",
     "fileCount": 45,
     "totalSizeMb": 250
   }
 ]
 ```
 
-### Formato de `manifest.json` de cada modpack
+### `modpacks/{id}/manifest.json`
 
 ```json
 {
-  "id": "vanilla-plus",
-  "version": "1.0.1",
   "files": [
     {
       "filename": "sodium-0.5.8.jar",
       "type": "mod",
       "sizeMb": 1.5,
-      "downloadUrl": "https://github.com/TU_USUARIO/TU_REPO/releases/download/vanilla-plus-v1.0.1/sodium-0.5.8.jar"
+      "downloadUrl": "https://github.com/TU_USUARIO/TU_REPO/releases/download/vanilla-plus-v1.0.0/sodium-0.5.8.jar"
     }
-  ],
-  "filesToDelete": []
+  ]
 }
 ```
 
+---
+
 ## Panel de administración
 
-Accede desde dentro de la app en Ajustes → Panel Admin.
-Contraseña por defecto: `admin123` (cámbiala en Ajustes).
+- Accede pulsando **ADMIN** en la pantalla principal
+- Contraseña por defecto: `admin123` (cámbiala en Ajustes)
+- Para publicar actualizaciones necesitas:
+  1. Un repositorio GitHub configurado en Ajustes (formato `usuario/repo`)
+  2. Un **GitHub Personal Access Token** con permiso `repo`
 
-Para publicar updates necesitas un GitHub Personal Access Token con permisos `repo` y `write:packages`.
+---
+
+## Configuración en Ajustes (dentro de la app)
+
+| Campo | Descripción |
+|-------|-------------|
+| Repositorio GitHub | `usuario/nombre-repo` o URL completa |
+| Token GitHub | Solo necesario para el admin (publicar updates) |
+| Contraseña Admin | Protege el acceso al panel de administración |
