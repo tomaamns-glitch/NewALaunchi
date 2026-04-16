@@ -1,0 +1,112 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. Todos los derechos reservados.
+
+Instale la versión más reciente de PowerShell para obtener nuevas características y mejoras. https://aka.ms/PSWindows
+
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi> pnpm run electron:dev
+>> # 3. Arranca en modo desarrollo
+>> pnpm install
+>> # 2. Instala todas las dependencias (incluye Electron)
+>> cd artifacts/alaunchi
+>> # 1. Entra a la carpeta del launcher
+
+> @workspace/alaunchi@1.0.0 electron:dev C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi
+> concurrently -k --names "VITE,ELECTRON" -c "cyan,yellow" "vite --config vite.electron.config.ts" "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron ."
+
+[VITE] failed to load config from C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi\vite.electron.config.ts
+[VITE] error when starting dev server:
+[VITE] Error: The package "@esbuild/win32-x64" could not be found, and is needed by esbuild.
+[VITE]
+[VITE] If you are installing esbuild with npm, make sure that you don't specify the
+[VITE] "--no-optional" or "--omit=optional" flags. The "optionalDependencies" feature
+[VITE] of "package.json" is used by esbuild to install the correct binary executable
+[VITE] for your current platform.
+[VITE]     at generateBinPath (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1750:15)
+[VITE]     at esbuildCommandAndArgs (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1820:33)
+[VITE]     at ensureServiceIsRunning (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1977:25)
+[VITE]     at build (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1876:26)
+[VITE]     at bundleConfigFile (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35808:23)
+[VITE]     at bundleAndLoadConfigFile (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35795:24)
+[VITE]     at loadConfigFromFile (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35764:179)
+[VITE]     at resolveConfig (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35413:28)
+[VITE]     at _createServer (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:25362:73)
+[VITE]     at createServer$2 (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:25359:9)
+[VITE] vite --config vite.electron.config.ts exited with code 1
+--> Sending SIGTERM to other processes..
+[ELECTRON] wait-on http://localhost:5173 && cross-env NODE_ENV=development electron . exited with code 1
+ ELIFECYCLE  Command failed with exit code 1.
+Scope: all 9 workspace projects
+../.. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+│ "sh" no se reconoce como un comando interno o externo,
+│ programa o archivo por lotes ejecutable.
+└─ Failed in 27ms at C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager
+ ELIFECYCLE  Command failed with exit code 1.
+cd : No se encuentra la ruta de acceso 'C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi\artifacts\alaunchi' porque no existe.
+En línea: 5 Carácter: 1
++ cd artifacts/alaunchi
++ ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (C:\Users\adrii\...ifacts\alaunchi:String) [Set-Location], ItemNotFoundException
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
+
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi> # Desde la RAÍZ del proyecto
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi> cd C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager>
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager> pnpm install --ignore-scripts --force
+ WARN  using --force I sure hope you know what you are doing
+Scope: all 9 workspace projects
+Lockfile is up to date, resolution step is skipped
+Packages: +787
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 787, reused 779, downloaded 8, added 787, done
+Done in 23.5s using pnpm v10.33.0
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager> # Luego arranca
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager> cd artifacts\alaunchi
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi> pnpm run electron:dev
+
+> @workspace/alaunchi@1.0.0 electron:dev C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi
+> concurrently -k --names "VITE,ELECTRON" -c "cyan,yellow" "vite --config vite.electron.config.ts" "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron ."
+
+[VITE] failed to load config from C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi\vite.electron.config.ts
+[VITE] error when starting dev server:
+[VITE] Error:
+[VITE] You installed esbuild for another platform than the one you're currently using.
+[VITE] This won't work because esbuild is written with native code and needs to
+[VITE] install a platform-specific binary executable.
+[VITE]
+[VITE] Specifically the "@esbuild/linux-x64" package is present but this platform
+[VITE] needs the "@esbuild/win32-x64" package instead. People often get into this
+[VITE] situation by installing esbuild on Windows or macOS and copying "node_modules"
+[VITE] into a Docker image that runs Linux, or by copying "node_modules" between
+[VITE] Windows and WSL environments.
+[VITE]
+[VITE] If you are installing with npm, you can try not copying the "node_modules"
+[VITE] directory when you copy the files over, and running "npm ci" or "npm install"
+[VITE] on the destination platform after the copy. Or you could consider using yarn
+[VITE] instead of npm which has built-in support for installing a package on multiple
+[VITE] platforms simultaneously.
+[VITE]
+[VITE] If you are installing with yarn, you can try listing both this platform and the
+[VITE] other platform in your ".yarnrc.yml" file using the "supportedArchitectures"
+[VITE] feature: https://yarnpkg.com/configuration/yarnrc/#supportedArchitectures
+[VITE] Keep in mind that this means multiple copies of esbuild will be present.
+[VITE]
+[VITE] Another alternative is to use the "esbuild-wasm" package instead, which works
+[VITE] the same way on all platforms. But it comes with a heavy performance cost and
+[VITE] can sometimes be 10x slower than the "esbuild" package, so you may also not
+[VITE] want to do that.
+[VITE]
+[VITE]     at generateBinPath (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1739:17)
+[VITE]     at esbuildCommandAndArgs (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1820:33)
+[VITE]     at ensureServiceIsRunning (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1977:25)
+[VITE]     at build (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1876:26)
+[VITE]     at bundleConfigFile (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35808:23)
+[VITE]     at bundleAndLoadConfigFile (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35795:24)
+[VITE]     at loadConfigFromFile (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35764:179)
+[VITE]     at resolveConfig (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35413:28)
+[VITE]     at _createServer (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:25362:73)
+[VITE]     at createServer$2 (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:25359:9)
+[VITE] vite --config vite.electron.config.ts exited with code 1
+--> Sending SIGTERM to other processes..
+[ELECTRON] wait-on http://localhost:5173 && cross-env NODE_ENV=development electron . exited with code 1
+ ELIFECYCLE  Command failed with exit code 1.
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi> 
