@@ -1,0 +1,51 @@
+[ELECTRON] wait-on http://localhost:5173 && cross-env NODE_ENV=development electron . exited with code 1
+ ELIFECYCLE  Command failed with exit code 1.
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi> pnpm install --ignore-scripts
+Scope: all 9 workspace projects
+Done in 795ms using pnpm v10.33.0
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi> pnpm run electron:dev
+
+> @workspace/alaunchi@1.0.0 electron:dev C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi
+> concurrently -k --names "VITE,ELECTRON" -c "cyan,yellow" "vite --config vite.electron.config.ts" "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron ."
+
+[VITE] C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\rollup@4.59.0\node_modules\rollup\dist\native.js:115
+[VITE]          throw new Error(
+[VITE]                ^
+[VITE]
+[VITE] Error: Cannot find module @rollup/rollup-win32-x64-msvc. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). Please try `npm i` again after removing both package-lock.json and node_modules directory.
+[VITE]     at requireWithFriendlyError (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\rollup@4.59.0\node_modules\rollup\dist\native.js:115:9)
+[VITE]     at Object.<anonymous> (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\rollup@4.59.0\node_modules\rollup\dist\native.js:124:76)
+[VITE]     at Module._compile (node:internal/modules/cjs/loader:1761:14)
+[VITE]     at Object..js (node:internal/modules/cjs/loader:1893:10)
+[VITE]     at Module.load (node:internal/modules/cjs/loader:1481:32)
+[VITE]     at Module._load (node:internal/modules/cjs/loader:1300:12)
+[VITE]     at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+[VITE]     at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+[VITE]     at loadCJSModuleWithModuleLoad (node:internal/modules/esm/translators:339:3)
+[VITE]     at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:242:7) {
+[VITE]   [cause]: Error: Cannot find module '@rollup/rollup-win32-x64-msvc'
+[VITE]   Require stack:
+[VITE]   - C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\rollup@4.59.0\node_modules\rollup\dist\native.js
+[VITE]       at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+[VITE]       at defaultResolveImpl (node:internal/modules/cjs/loader:1059:19)
+[VITE]       at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1064:22)
+[VITE]       at Module._load (node:internal/modules/cjs/loader:1227:37)
+[VITE]       at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+[VITE]       at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+[VITE]       at Module.require (node:internal/modules/cjs/loader:1504:12)
+[VITE]       at require (node:internal/modules/helpers:152:16)
+[VITE]       at requireWithFriendlyError (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\rollup@4.59.0\node_modules\rollup\dist\native.js:97:10)
+[VITE]       at Object.<anonymous> (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\rollup@4.59.0\node_modules\rollup\dist\native.js:124:76) {
+[VITE]     code: 'MODULE_NOT_FOUND',
+[VITE]     requireStack: [
+[VITE]       'C:\\Users\\adrii\\Downloads\\Mod-Pack-Manager\\Mod-Pack-Manager\\node_modules\\.pnpm\\rollup@4.59.0\\node_modules\\rollup\\dist\\native.js'
+[VITE]     ]
+[VITE]   }
+[VITE] }
+[VITE]
+[VITE] Node.js v24.12.0
+[VITE] vite --config vite.electron.config.ts exited with code 1
+--> Sending SIGTERM to other processes..
+[ELECTRON] wait-on http://localhost:5173 && cross-env NODE_ENV=development electron . exited with code 1
+ ELIFECYCLE  Command failed with exit code 1.
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi>
