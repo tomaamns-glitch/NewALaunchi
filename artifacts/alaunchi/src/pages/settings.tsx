@@ -15,6 +15,7 @@ export default function Settings() {
   const [repoUrl, setRepoUrl] = useState("");
   const [token, setToken] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [azureClientId, setAzureClientId] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated) setLocation("/login");
@@ -24,12 +25,14 @@ export default function Settings() {
     setRepoUrl(localStorage.getItem("githubRepo") || "");
     setToken(localStorage.getItem("githubToken") || "");
     setAdminPassword(localStorage.getItem("adminPassword") || "admin123");
+    setAzureClientId(localStorage.getItem("azureClientId") || "");
   }, []);
 
   const handleSave = () => {
     localStorage.setItem("githubRepo", repoUrl);
     localStorage.setItem("githubToken", token);
     localStorage.setItem("adminPassword", adminPassword);
+    localStorage.setItem("azureClientId", azureClientId);
     toast.success("Ajustes guardados correctamente");
   };
 
@@ -48,7 +51,39 @@ export default function Settings() {
       </header>
 
       <main className="flex-1 p-8 max-w-2xl mx-auto w-full space-y-8">
-        
+
+        <Card className="bg-card/50 border-white/5">
+          <CardHeader>
+            <CardTitle className="text-white">Autenticación Microsoft</CardTitle>
+            <CardDescription>
+              Necesitas registrar una app gratuita en Azure para que el login con Microsoft funcione.{" "}
+              <a
+                href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/CreateApplicationBlade"
+                target="_blank"
+                rel="noreferrer"
+                className="text-amber-400 hover:underline"
+              >
+                Registrar app en Azure →
+              </a>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="azureClientId">Azure Client ID</Label>
+              <Input
+                id="azureClientId"
+                value={azureClientId}
+                onChange={(e) => setAzureClientId(e.target.value)}
+                className="bg-background/50 border-white/10 text-white font-mono"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              />
+              <p className="text-xs text-muted-foreground">
+                En Azure: Registra una app → copia el "Application (client) ID" → en Autenticación activa "Allow public client flows".
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="bg-card/50 border-white/5">
           <CardHeader>
             <CardTitle className="text-white">Integración con GitHub</CardTitle>

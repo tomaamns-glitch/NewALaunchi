@@ -89,8 +89,9 @@ export async function silentRefresh(current: AuthData): Promise<AuthData | null>
   if (!current.msRefreshToken) return null;
   if (current.msRefreshTokenExpiresAt < Date.now()) return null;
 
+  const clientId = getAzureClientId();
   try {
-    const tokenRes = await eAPI.refreshMsToken({ refreshToken: current.msRefreshToken });
+    const tokenRes = await eAPI.refreshMsToken({ refreshToken: current.msRefreshToken, clientId });
     if (!tokenRes?.access_token) return null;
 
     const mc = await msTokenToMinecraft(tokenRes.access_token);
@@ -117,14 +118,15 @@ export function mcTokenIsExpiredOrNearExpiry(data: AuthData): boolean {
 async function pollForToken(
   deviceCode: string,
   intervalSecs: number,
-  expiresSecs: number
+  expiresSecs: number,
+  clientId: string
 ): Promise<{ access_token: string; refresh_token: string }> {
   const deadline = Date.now() + expiresSecs * 1000;
   const intervalMs = (intervalSecs + 1) * 1000;
 
   while (Date.now() < deadline) {
     await delay(intervalMs);
-    const res = await eAPI.pollToken({ deviceCode });
+    const res = await eAPI.pollToken({ deviceCode, clientId });
 
     if (res.access_token) return res;
     if (res.error === "authorization_declined") throw new Error("El inicio de sesión fue rechazado.");
