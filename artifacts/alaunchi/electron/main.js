@@ -398,12 +398,16 @@ ipcMain.handle("ms:device-code-auth", async () => {
       res.on("end", () => {
         try {
           const p = JSON.parse(data);
+          if (p.error) {
+            console.error("[MS Auth] Device code error:", p.error, p.error_description);
+            return reject(new Error(p.error_description || p.error));
+          }
           shell.openExternal(p.verification_uri);
           resolve({ userCode: p.user_code, verificationUri: p.verification_uri, expiresIn: p.expires_in, interval: p.interval, deviceCode: p.device_code });
         } catch (e) { reject(e); }
       });
     });
-    req.on("error", reject);
+    req.on("error", (e) => { console.error("[MS Auth] Network error:", e.message); reject(e); });
     req.write(postData);
     req.end();
   });

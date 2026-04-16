@@ -47,8 +47,9 @@ export async function loginWithMicrosoft(onProgress: ProgressCallback): Promise<
   };
   try {
     deviceCodeRes = await eAPI.startDeviceCodeAuth();
-  } catch {
-    throw new Error("No se pudo conectar con Microsoft. Comprueba tu conexión a internet.");
+  } catch (e: any) {
+    const msg = e?.message || "";
+    throw new Error(msg || "No se pudo conectar con Microsoft. Comprueba tu conexión a internet.");
   }
 
   onProgress({
