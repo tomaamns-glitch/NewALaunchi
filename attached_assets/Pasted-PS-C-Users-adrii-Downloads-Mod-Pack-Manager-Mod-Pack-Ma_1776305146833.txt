@@ -1,0 +1,28 @@
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi> pnpm run electron:dev
+
+> @workspace/alaunchi@1.0.0 electron:dev C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi
+> concurrently -k --names "VITE,ELECTRON" -c "cyan,yellow" "vite --config vite.electron.config.ts" "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron ."
+
+[VITE] failed to load config from C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi\vite.electron.config.ts
+[VITE] error when starting dev server:
+[VITE] Error: The package "@esbuild/win32-x64" could not be found, and is needed by esbuild.
+[VITE]
+[VITE] If you are installing esbuild with npm, make sure that you don't specify the
+[VITE] "--no-optional" or "--omit=optional" flags. The "optionalDependencies" feature
+[VITE] of "package.json" is used by esbuild to install the correct binary executable
+[VITE] for your current platform.
+[VITE]     at generateBinPath (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1750:15)
+[VITE]     at esbuildCommandAndArgs (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1820:33)
+[VITE]     at ensureServiceIsRunning (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1977:25)
+[VITE]     at build (C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\node_modules\.pnpm\esbuild@0.27.3\node_modules\esbuild\lib\main.js:1876:26)
+[VITE]     at bundleConfigFile (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35808:23)
+[VITE]     at bundleAndLoadConfigFile (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35795:24)
+[VITE]     at loadConfigFromFile (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35764:179)
+[VITE]     at resolveConfig (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:35413:28)
+[VITE]     at _createServer (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:25362:73)
+[VITE]     at createServer$2 (file:///C:/Users/adrii/Downloads/Mod-Pack-Manager/Mod-Pack-Manager/node_modules/.pnpm/vite@7.3.1_@types+node@25.3_847d3f1dfd8a5a4dca3b40dafc2c9d32/node_modules/vite/dist/node/chunks/config.js:25359:9)
+[VITE] vite --config vite.electron.config.ts exited with code 1
+--> Sending SIGTERM to other processes..
+[ELECTRON] wait-on http://localhost:5173 && cross-env NODE_ENV=development electron . exited with code 1
+ ELIFECYCLE  Command failed with exit code 1.
+PS C:\Users\adrii\Downloads\Mod-Pack-Manager\Mod-Pack-Manager\artifacts\alaunchi> 
