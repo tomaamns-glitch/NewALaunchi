@@ -13,6 +13,14 @@ const execAsync = promisify(exec);
 
 const isDev = process.env.NODE_ENV === "development";
 
+// ─── CONFIGURACIÓN DEL LAUNCHER ────────────────────────────────────────────
+// Cambia azureClientId por el tuyo antes de distribuir la app.
+// Los usuarios finales no necesitan configurar nada.
+const LAUNCHER_CONFIG = {
+  azureClientId: "",  // <-- pon aquí tu Client ID de Azure
+};
+// ────────────────────────────────────────────────────────────────────────────
+
 const APP_DATA_DIR = path.join(os.homedir(), ".alaunchi");
 const INSTANCES_DIR = path.join(APP_DATA_DIR, "instances");
 const CACHE_DIR = path.join(APP_DATA_DIR, "cache");
@@ -384,7 +392,7 @@ ipcMain.handle("mc:check-java", async () => {
 });
 
 ipcMain.handle("ms:device-code-auth", async (_, args) => {
-  const clientId = args?.clientId;
+  const clientId = args?.clientId || LAUNCHER_CONFIG.azureClientId;
   if (!clientId) return Promise.reject(new Error("Azure Client ID no configurado. Ve a Ajustes e introduce tu Client ID de Azure."));
   return new Promise((resolve, reject) => {
     const postData = `client_id=${clientId}&scope=XboxLive.signin%20offline_access`;
@@ -415,7 +423,7 @@ ipcMain.handle("ms:device-code-auth", async (_, args) => {
 });
 
 ipcMain.handle("ms:poll-token", async (_, { deviceCode, clientId }) => {
-  const cid = clientId || "00000000402b5328";
+  const cid = clientId || LAUNCHER_CONFIG.azureClientId;
   return new Promise((resolve, reject) => {
     const postData = `grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id=${cid}&device_code=${deviceCode}`;
     const req = https.request({
@@ -435,7 +443,7 @@ ipcMain.handle("ms:poll-token", async (_, { deviceCode, clientId }) => {
 });
 
 ipcMain.handle("ms:refresh-token", async (_, { refreshToken, clientId }) => {
-  const cid = clientId || "00000000402b5328";
+  const cid = clientId || LAUNCHER_CONFIG.azureClientId;
   return new Promise((resolve, reject) => {
     const postData = `grant_type=refresh_token&client_id=${cid}&refresh_token=${encodeURIComponent(refreshToken)}&scope=XboxLive.signin%20offline_access`;
     const req = https.request({
