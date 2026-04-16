@@ -383,8 +383,9 @@ ipcMain.handle("mc:check-java", async () => {
   }
 });
 
-ipcMain.handle("ms:device-code-auth", async () => {
-  const clientId = "00000000402b5328";
+ipcMain.handle("ms:device-code-auth", async (_, args) => {
+  const clientId = args?.clientId;
+  if (!clientId) return Promise.reject(new Error("Azure Client ID no configurado. Ve a Ajustes e introduce tu Client ID de Azure."));
   return new Promise((resolve, reject) => {
     const postData = `client_id=${clientId}&scope=XboxLive.signin%20offline_access`;
     const req = https.request({
@@ -413,10 +414,10 @@ ipcMain.handle("ms:device-code-auth", async () => {
   });
 });
 
-ipcMain.handle("ms:poll-token", async (_, { deviceCode }) => {
-  const clientId = "00000000402b5328";
+ipcMain.handle("ms:poll-token", async (_, { deviceCode, clientId }) => {
+  const cid = clientId || "00000000402b5328";
   return new Promise((resolve, reject) => {
-    const postData = `grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id=${clientId}&device_code=${deviceCode}`;
+    const postData = `grant_type=urn:ietf:params:oauth:grant-type:device_code&client_id=${cid}&device_code=${deviceCode}`;
     const req = https.request({
       hostname: "login.microsoftonline.com",
       path: "/consumers/oauth2/v2.0/token",
@@ -433,10 +434,10 @@ ipcMain.handle("ms:poll-token", async (_, { deviceCode }) => {
   });
 });
 
-ipcMain.handle("ms:refresh-token", async (_, { refreshToken }) => {
-  const clientId = "00000000402b5328";
+ipcMain.handle("ms:refresh-token", async (_, { refreshToken, clientId }) => {
+  const cid = clientId || "00000000402b5328";
   return new Promise((resolve, reject) => {
-    const postData = `grant_type=refresh_token&client_id=${clientId}&refresh_token=${encodeURIComponent(refreshToken)}&scope=XboxLive.signin%20offline_access`;
+    const postData = `grant_type=refresh_token&client_id=${cid}&refresh_token=${encodeURIComponent(refreshToken)}&scope=XboxLive.signin%20offline_access`;
     const req = https.request({
       hostname: "login.microsoftonline.com",
       path: "/consumers/oauth2/v2.0/token",

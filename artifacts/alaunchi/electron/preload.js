@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   checkJava: () => ipcRenderer.invoke("mc:check-java"),
 
   // Microsoft Auth (Device Code Flow + Silent Refresh)
-  startDeviceCodeAuth: () => ipcRenderer.invoke("ms:device-code-auth"),
+  startDeviceCodeAuth: (args) => ipcRenderer.invoke("ms:device-code-auth", args),
   pollToken: (args) => ipcRenderer.invoke("ms:poll-token", args),
   refreshMsToken: (args) => ipcRenderer.invoke("ms:refresh-token", args),
   xboxAuth: (args) => ipcRenderer.invoke("ms:xbox-auth", args),

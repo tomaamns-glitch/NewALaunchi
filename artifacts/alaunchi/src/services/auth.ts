@@ -33,10 +33,16 @@ async function msTokenToMinecraft(msAccessToken: string): Promise<{
   return { mcToken: mcRes.mcToken, username: profile.username, uuid: profile.uuid };
 }
 
+export function getAzureClientId(): string {
+  return localStorage.getItem("azureClientId") || "";
+}
+
 export async function loginWithMicrosoft(onProgress: ProgressCallback): Promise<AuthData> {
   if (!isElectron) throw new Error("not_electron");
 
   onProgress({ stage: "requesting_code" });
+
+  const clientId = getAzureClientId();
 
   let deviceCodeRes: {
     userCode: string;
@@ -46,7 +52,7 @@ export async function loginWithMicrosoft(onProgress: ProgressCallback): Promise<
     deviceCode: string;
   };
   try {
-    deviceCodeRes = await eAPI.startDeviceCodeAuth();
+    deviceCodeRes = await eAPI.startDeviceCodeAuth({ clientId });
   } catch (e: any) {
     const msg = e?.message || "";
     throw new Error(msg || "No se pudo conectar con Microsoft. Comprueba tu conexión a internet.");
@@ -61,7 +67,7 @@ export async function loginWithMicrosoft(onProgress: ProgressCallback): Promise<
 
   onProgress({ stage: "polling" });
 
-  const tokenRes = await pollForToken(deviceCodeRes.deviceCode, deviceCodeRes.interval, deviceCodeRes.expiresIn);
+  const tokenRes = await pollForToken(deviceCodeRes.deviceCode, deviceCodeRes.interval, deviceCodeRes.expiresIn, clientId);
 
   onProgress({ stage: "authenticating" });
 
