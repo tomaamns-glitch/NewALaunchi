@@ -137,14 +137,21 @@ export async function fetchModpacks(repoUrl: string, token?: string): Promise<Mo
   }
 }
 
-export async function fetchModpackFiles(repoUrl: string, modpackId: string): Promise<ModFile[]> {
+export async function fetchModpackFiles(repoUrl: string, modpackId: string, token?: string): Promise<ModFile[]> {
   const parsed = parseRepo(repoUrl);
   if (!parsed) return [];
 
+  const { owner, repo } = parsed;
+  const filePath = `modpacks/${modpackId}/manifest.json`;
+
   try {
-    const res = await fetch(rawUrl(parsed.owner, parsed.repo, `modpacks/${modpackId}/manifest.json`), {
-      cache: "no-store",
-    });
+    if (token) {
+      const file = await getFileContents(owner, repo, filePath, token);
+      if (!file) return [];
+      const data: { files: ModFile[] } = JSON.parse(file.content);
+      return data.files ?? [];
+    }
+    const res = await fetch(rawUrl(owner, repo, filePath), { cache: "no-store" });
     if (!res.ok) return [];
     const data: { files: ModFile[] } = await res.json();
     return data.files ?? [];

@@ -7,7 +7,7 @@ import { Settings, LogOut, Download, Play, RefreshCw, Loader2, AlertTriangle, Co
 import { Button } from "@/components/ui/button";
 import { installModpack, launchMinecraft } from "@/services/electron";
 import { toast } from "sonner";
-import { Modpack } from "@/services/github";
+import { Modpack, fetchModpackFiles } from "@/services/github";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -50,7 +50,10 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
     setStatus("installing");
     setProgress(0);
     try {
-      await installModpack(pack.id, [], (p) => setProgress(p));
+      const repoUrl = localStorage.getItem("githubRepo") ?? "";
+      const token = localStorage.getItem("githubToken") ?? "";
+      const files = await fetchModpackFiles(repoUrl, pack.id, token || undefined);
+      await installModpack(pack.id, files as any, (p) => setProgress(p));
       updateModpackStatus(pack.id, { installed: true, installedVersion: pack.version });
       toast.success(`${pack.name} instalado correctamente.`);
     } catch (e: any) {
@@ -104,11 +107,17 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
       )}
 
       <div className="aspect-[3/4] relative overflow-hidden bg-black/50">
-        <img
-          src={pack.imageUrl}
-          alt={pack.name}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 group-hover:brightness-110"
-        />
+        {pack.imageUrl ? (
+          <img
+            src={pack.imageUrl}
+            alt={pack.name}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 group-hover:brightness-110"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-accent/20 to-black flex items-center justify-center">
+            <span className="text-4xl font-black text-accent/40">{pack.name.charAt(0)}</span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent opacity-80" />
         <div className="absolute top-3 left-3 flex gap-1.5">
           <span className="px-2 py-1 text-xs font-bold bg-black/60 backdrop-blur-md rounded border border-white/10 text-white">
