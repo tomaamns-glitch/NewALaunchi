@@ -62,10 +62,11 @@ export const useModpacks = create<ModpackState>((set, get) => ({
   loadModpacks: async () => {
     set({ loading: true, error: null });
     const repoUrl = localStorage.getItem("githubRepo") ?? "";
+    const token = localStorage.getItem("githubToken") ?? "";
 
     try {
       const [remoteModpacks, installedState] = await Promise.all([
-        fetchModpacks(repoUrl),
+        fetchModpacks(repoUrl, token || undefined),
         getInstalledState(),
       ]);
 

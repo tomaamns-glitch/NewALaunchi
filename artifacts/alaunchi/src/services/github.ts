@@ -106,16 +106,27 @@ async function putFileContents(
   });
 }
 
-export async function fetchModpacks(repoUrl: string): Promise<Modpack[]> {
+export async function fetchModpacks(repoUrl: string, token?: string): Promise<Modpack[]> {
   const parsed = parseRepo(repoUrl);
   if (!parsed) return [];
 
+  const { owner, repo } = parsed;
+
   try {
-    const res = await fetch(rawUrl(parsed.owner, parsed.repo, "modpacks.json"), {
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error("Not found");
-    const data: Omit<Modpack, "installed" | "installedVersion" | "updateAvailable">[] = await res.json();
+    let data: Omit<Modpack, "installed" | "installedVersion" | "updateAvailable">[];
+
+    if (token) {
+      // Use GitHub API (no CDN cache) when token is available
+      const file = await getFileContents(owner, repo, "modpacks.json", token);
+      if (!file) return [];
+      data = JSON.parse(file.content);
+    } else {
+      // Fall back to raw URL (may be cached up to 5 min)
+      const res = await fetch(rawUrl(owner, repo, "modpacks.json"), { cache: "no-store" });
+      if (!res.ok) throw new Error("Not found");
+      data = await res.json();
+    }
+
     return data.map((mp) => ({
       ...mp,
       installed: false,
