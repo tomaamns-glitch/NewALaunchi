@@ -354,10 +354,9 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
     try {
       win?.webContents.send("launch-status", { modpackId, stage: "installing_loader" });
       const neoforgeVersion = await resolveNeoforgeVersion(mcVersion);
-      if (!neoforgeVersion) throw new Error(`No NeoForge encontrado para MC ${mcVersion}`);
-      const profile = await fetchJson(
-        `https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoforgeVersion}/neoforge-${neoforgeVersion}-client.json`
-      );
+      if (!neoforgeVersion) throw new Error(`No se encontró NeoForge para MC ${mcVersion}`);
+      console.log(`[NeoForge] Usando versión ${neoforgeVersion}`);
+      const profile = await getLoaderVersionJson("neoforge", neoforgeVersion, mcVersion);
       if (profile.mainClass) mainClass = profile.mainClass;
       for (const lib of profile.libraries || []) {
         const libPath = await resolveModloaderLibrary(lib, librariesDir, [
@@ -377,11 +376,9 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
     try {
       win?.webContents.send("launch-status", { modpackId, stage: "installing_loader" });
       const forgeVersion = await resolveForgeVersion(mcVersion);
-      if (!forgeVersion) throw new Error(`No Forge encontrado para MC ${mcVersion}`);
-      const fullVersion = `${mcVersion}-${forgeVersion}`;
-      const profile = await fetchJson(
-        `https://maven.minecraftforge.net/net/minecraftforge/forge/${fullVersion}/forge-${fullVersion}-client.json`
-      );
+      if (!forgeVersion) throw new Error(`No se encontró Forge para MC ${mcVersion}`);
+      console.log(`[Forge] Usando versión ${forgeVersion}`);
+      const profile = await getLoaderVersionJson("forge", forgeVersion, mcVersion);
       if (profile.mainClass) mainClass = profile.mainClass;
       for (const lib of profile.libraries || []) {
         const libPath = await resolveModloaderLibrary(lib, librariesDir, [
@@ -461,6 +458,57 @@ async function resolveForgeVersion(mcVersion) {
   }
 }
 
+async function extractJsonFromJar(jarPath, entryName) {
+  const tmpOut = jarPath + ".extracted.json";
+  try {
+    if (process.platform === "win32") {
+      const ps = `
+        Add-Type -Assembly System.IO.Compression.FileSystem;
+        $z = [System.IO.Compression.ZipFile]::OpenRead('${jarPath.replace(/\\/g, "\\\\")}');
+        $e = $z.Entries | Where-Object { $_.FullName -eq '${entryName}' };
+        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($e, '${tmpOut.replace(/\\/g, "\\\\")}', $true);
+        $z.Dispose()
+      `.trim().replace(/\n\s+/g, "; ");
+      await execAsync(`powershell -NoProfile -Command "${ps}"`);
+    } else {
+      await execAsync(`unzip -p "${jarPath}" "${entryName}" > "${tmpOut}"`);
+    }
+    const content = await fs.readFile(tmpOut, "utf8");
+    await fs.unlink(tmpOut).catch(() => {});
+    return JSON.parse(content);
+  } catch (e) {
+    await fs.unlink(tmpOut).catch(() => {});
+    throw e;
+  }
+}
+
+async function getLoaderVersionJson(loaderType, loaderVersion, mcVersion) {
+  const cacheFile = path.join(CACHE_DIR, `${loaderType}-${loaderVersion}-version.json`);
+  if (fsSync.existsSync(cacheFile)) {
+    return JSON.parse(await fs.readFile(cacheFile, "utf8"));
+  }
+
+  let installerUrl, installerFilename;
+  if (loaderType === "neoforge") {
+    installerFilename = `neoforge-${loaderVersion}-installer.jar`;
+    installerUrl = `https://maven.neoforged.net/releases/net/neoforged/neoforge/${loaderVersion}/${installerFilename}`;
+  } else {
+    const fullVersion = `${mcVersion}-${loaderVersion}`;
+    installerFilename = `forge-${fullVersion}-installer.jar`;
+    installerUrl = `https://maven.minecraftforge.net/net/minecraftforge/forge/${fullVersion}/${installerFilename}`;
+  }
+
+  const installerPath = path.join(CACHE_DIR, installerFilename);
+  if (!fsSync.existsSync(installerPath)) {
+    await downloadFile(installerUrl, installerPath, () => {});
+  }
+
+  const versionJson = await extractJsonFromJar(installerPath, "version.json");
+  await fs.writeFile(cacheFile, JSON.stringify(versionJson, null, 2));
+  await fs.unlink(installerPath).catch(() => {});
+  return versionJson;
+}
+
 async function resolveModloaderLibrary(lib, librariesDir, mavenBases) {
   if (lib.downloads?.artifact) {
     const artifact = lib.downloads.artifact;
@@ -484,7 +532,7 @@ async function resolveModloaderLibrary(lib, librariesDir, mavenBases) {
       for (const base of mavenBases) {
         try {
           await downloadFile(base + relPath, libPath, () => {});
-          break;
+          if (fsSync.existsSync(libPath)) break;
         } catch {
           if (fsSync.existsSync(libPath)) fsSync.unlinkSync(libPath);
         }
