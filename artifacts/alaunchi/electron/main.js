@@ -324,6 +324,7 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
 
   if (loaderType === "fabric" || loaderType === "quilt") {
     try {
+      win?.webContents.send("launch-status", { modpackId, stage: "installing_loader" });
       const loaderMeta = await fetchJson("https://meta.fabricmc.net/v2/versions/loader");
       const latestLoader = loaderMeta[0].version;
       const fabricProfile = await fetchJson(
@@ -332,10 +333,10 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
       mainClass = fabricProfile.mainClass;
       for (const lib of fabricProfile.libraries || []) {
         const parts = lib.name.split(":");
-        const [group, artifact, version] = parts;
+        const [group, artifact, ver] = parts;
         const groupPath = group.replace(/\./g, "/");
-        const jarName = `${artifact}-${version}.jar`;
-        const relPath = `${groupPath}/${artifact}/${version}/${jarName}`;
+        const jarName = `${artifact}-${ver}.jar`;
+        const relPath = `${groupPath}/${artifact}/${ver}/${jarName}`;
         const libPath = path.join(librariesDir, relPath);
         await fs.mkdir(path.dirname(libPath), { recursive: true });
         if (!fsSync.existsSync(libPath)) {
@@ -345,7 +346,54 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
         classpath.push(libPath);
       }
     } catch (e) {
-      console.error("[Fabric] Error descargando Fabric:", e.message);
+      console.error("[Fabric] Error:", e.message);
+    }
+  }
+
+  if (loaderType === "neoforge") {
+    try {
+      win?.webContents.send("launch-status", { modpackId, stage: "installing_loader" });
+      const neoforgeVersion = await resolveNeoforgeVersion(mcVersion);
+      if (!neoforgeVersion) throw new Error(`No NeoForge encontrado para MC ${mcVersion}`);
+      const profile = await fetchJson(
+        `https://maven.neoforged.net/releases/net/neoforged/neoforge/${neoforgeVersion}/neoforge-${neoforgeVersion}-client.json`
+      );
+      if (profile.mainClass) mainClass = profile.mainClass;
+      for (const lib of profile.libraries || []) {
+        const libPath = await resolveModloaderLibrary(lib, librariesDir, [
+          "https://maven.neoforged.net/releases/",
+          "https://libraries.minecraft.net/",
+          "https://repo1.maven.org/maven2/",
+        ]);
+        if (libPath) classpath.push(libPath);
+      }
+    } catch (e) {
+      console.error("[NeoForge] Error:", e.message);
+      throw new Error(`No se pudo instalar NeoForge para MC ${mcVersion}: ${e.message}`);
+    }
+  }
+
+  if (loaderType === "forge") {
+    try {
+      win?.webContents.send("launch-status", { modpackId, stage: "installing_loader" });
+      const forgeVersion = await resolveForgeVersion(mcVersion);
+      if (!forgeVersion) throw new Error(`No Forge encontrado para MC ${mcVersion}`);
+      const fullVersion = `${mcVersion}-${forgeVersion}`;
+      const profile = await fetchJson(
+        `https://maven.minecraftforge.net/net/minecraftforge/forge/${fullVersion}/forge-${fullVersion}-client.json`
+      );
+      if (profile.mainClass) mainClass = profile.mainClass;
+      for (const lib of profile.libraries || []) {
+        const libPath = await resolveModloaderLibrary(lib, librariesDir, [
+          "https://maven.minecraftforge.net/",
+          "https://libraries.minecraft.net/",
+          "https://repo1.maven.org/maven2/",
+        ]);
+        if (libPath) classpath.push(libPath);
+      }
+    } catch (e) {
+      console.error("[Forge] Error:", e.message);
+      throw new Error(`No se pudo instalar Forge para MC ${mcVersion}: ${e.message}`);
     }
   }
 
@@ -377,6 +425,75 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
   win?.webContents.send("launch-status", { modpackId, stage: "launched" });
   return { success: true, pid: child.pid };
 });
+
+async function resolveNeoforgeVersion(mcVersion) {
+  try {
+    const data = await fetchJson(
+      "https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge"
+    );
+    const versions = data.versions || [];
+    const parts = mcVersion.split(".");
+    const major = parts[1];
+    const minor = parts[2] || "0";
+    let prefix;
+    if (mcVersion === "1.20.1") {
+      prefix = "47.";
+    } else {
+      prefix = `${major}.${minor}.`;
+    }
+    const matching = versions.filter((v) => v.startsWith(prefix));
+    if (!matching.length) return null;
+    return matching[matching.length - 1];
+  } catch {
+    return null;
+  }
+}
+
+async function resolveForgeVersion(mcVersion) {
+  try {
+    const data = await fetchJson(
+      "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
+    );
+    const promos = data.promos || {};
+    return promos[`${mcVersion}-recommended`] || promos[`${mcVersion}-latest`] || null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveModloaderLibrary(lib, librariesDir, mavenBases) {
+  if (lib.downloads?.artifact) {
+    const artifact = lib.downloads.artifact;
+    const libPath = path.join(librariesDir, artifact.path);
+    await fs.mkdir(path.dirname(libPath), { recursive: true });
+    if (!fsSync.existsSync(libPath)) {
+      await downloadFile(artifact.url, libPath, () => {});
+    }
+    return libPath;
+  }
+  if (lib.name) {
+    const parts = lib.name.split(":");
+    if (parts.length < 3) return null;
+    const [group, artifact, ver] = parts;
+    const groupPath = group.replace(/\./g, "/");
+    const jarName = `${artifact}-${ver}.jar`;
+    const relPath = `${groupPath}/${artifact}/${ver}/${jarName}`;
+    const libPath = path.join(librariesDir, relPath);
+    await fs.mkdir(path.dirname(libPath), { recursive: true });
+    if (!fsSync.existsSync(libPath)) {
+      for (const base of mavenBases) {
+        try {
+          await downloadFile(base + relPath, libPath, () => {});
+          break;
+        } catch {
+          if (fsSync.existsSync(libPath)) fsSync.unlinkSync(libPath);
+        }
+      }
+    }
+    return fsSync.existsSync(libPath) ? libPath : null;
+  }
+  return null;
+}
 
 function buildLaunchArgs(versionJson, opts) {
   const jvmArgs = [

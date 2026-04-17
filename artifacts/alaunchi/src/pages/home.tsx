@@ -33,10 +33,11 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
       if (data.modpackId === pack.id) {
         const stages: Record<string, string> = {
           preparing: "Preparando...",
-          downloading_client: "Descargando cliente...",
+          downloading_client: "Descargando cliente Minecraft...",
           downloading_assets: "Descargando assets...",
           downloading_libraries: "Descargando librerías...",
-          launching: "Iniciando...",
+          installing_loader: "Instalando modloader...",
+          launching: "Iniciando Minecraft...",
           launched: "¡Lanzado!",
         };
         setLaunchStage(stages[data.stage] || data.stage);
