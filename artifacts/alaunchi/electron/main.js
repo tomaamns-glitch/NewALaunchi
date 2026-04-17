@@ -406,6 +406,8 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
     catch { throw new Error("Java no encontrado. Ve a Ajustes e instala Java primero."); }
   }
 
+  const dedupedClasspath = [...new Set(classpath)];
+
   const mcArgs = buildLaunchArgs({ ...versionJson, mainClass }, {
     username: username || "Player",
     uuid: uuid || "00000000-0000-0000-0000-000000000000",
@@ -414,7 +416,7 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
     assetsDir,
     assetIndex: assetIndexId,
     version: mcVersion,
-    classpath: classpath.join(path.delimiter),
+    classpath: dedupedClasspath.join(path.delimiter),
     nativesDir,
     librariesDir,
     mcVersion,
