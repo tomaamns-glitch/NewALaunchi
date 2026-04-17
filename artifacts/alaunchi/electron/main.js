@@ -321,6 +321,7 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
   win?.webContents.send("launch-status", { modpackId, stage: "downloading_libraries" });
 
   let mainClass = versionJson.mainClass;
+  let loaderProfile = null;
 
   if (loaderType === "fabric" || loaderType === "quilt") {
     try {
@@ -330,6 +331,7 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
       const fabricProfile = await fetchJson(
         `https://meta.fabricmc.net/v2/versions/loader/${mcVersion}/${latestLoader}/profile/json`
       );
+      loaderProfile = fabricProfile;
       mainClass = fabricProfile.mainClass;
       for (const lib of fabricProfile.libraries || []) {
         const parts = lib.name.split(":");
@@ -357,6 +359,7 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
       if (!neoforgeVersion) throw new Error(`No se encontró NeoForge para MC ${mcVersion}`);
       console.log(`[NeoForge] Usando versión ${neoforgeVersion}`);
       const profile = await getLoaderVersionJson("neoforge", neoforgeVersion, mcVersion);
+      loaderProfile = profile;
       if (profile.mainClass) mainClass = profile.mainClass;
       for (const lib of profile.libraries || []) {
         const libPath = await resolveModloaderLibrary(lib, librariesDir, [
@@ -379,6 +382,7 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
       if (!forgeVersion) throw new Error(`No se encontró Forge para MC ${mcVersion}`);
       console.log(`[Forge] Usando versión ${forgeVersion}`);
       const profile = await getLoaderVersionJson("forge", forgeVersion, mcVersion);
+      loaderProfile = profile;
       if (profile.mainClass) mainClass = profile.mainClass;
       for (const lib of profile.libraries || []) {
         const libPath = await resolveModloaderLibrary(lib, librariesDir, [
@@ -412,13 +416,47 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
     version: mcVersion,
     classpath: classpath.join(path.delimiter),
     nativesDir,
+    librariesDir,
+    mcVersion,
     width: "1280",
     height: "720",
+  }, loaderProfile);
+
+  console.log("[Launch] Java:", javaPath);
+  console.log("[Launch] MainClass:", mainClass);
+  console.log("[Launch] Args count:", mcArgs.length);
+
+  const logFile = path.join(instanceDir, "launch.log");
+  let logFd;
+  try {
+    await fs.mkdir(instanceDir, { recursive: true });
+    logFd = fsSync.openSync(logFile, "w");
+  } catch { logFd = null; }
+
+  const stdio = logFd !== null
+    ? ["ignore", logFd, logFd]
+    : ["ignore", "ignore", "ignore"];
+
+  const child = spawn(javaPath, mcArgs, { detached: true, stdio });
+  if (logFd !== null) fsSync.closeSync(logFd);
+
+  child.on("error", (err) => {
+    console.error("[Launch] Spawn error:", err.message);
+    win?.webContents.send("launch-status", { modpackId, stage: "error", message: err.message });
   });
 
-  const child = spawn(javaPath, mcArgs, { detached: true, stdio: "ignore" });
-  child.unref();
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
+  const exitCode = child.exitCode;
+  if (exitCode !== null && exitCode !== 0) {
+    let logContent = "";
+    try { logContent = (await fs.readFile(logFile, "utf8")).slice(-3000); } catch {}
+    console.error("[Launch] Java crashed (code", exitCode, "):\n", logContent);
+    win?.webContents.send("launch-status", { modpackId, stage: "error", message: `Java salió con código ${exitCode}` });
+    throw new Error(`Java salió con código ${exitCode}. Log guardado en: ${logFile}`);
+  }
+
+  child.unref();
   win?.webContents.send("launch-status", { modpackId, stage: "launched" });
   return { success: true, pid: child.pid };
 });
@@ -543,15 +581,7 @@ async function resolveModloaderLibrary(lib, librariesDir, mavenBases) {
   return null;
 }
 
-function buildLaunchArgs(versionJson, opts) {
-  const jvmArgs = [
-    "-Xmx2G", "-Xms512M",
-    `-Djava.library.path=${opts.nativesDir}`,
-    "-Dminecraft.launcher.brand=ALaunchi",
-    "-Dminecraft.launcher.version=1.0",
-    "-cp", opts.classpath,
-  ];
-
+function buildLaunchArgs(versionJson, opts, loaderProfile = null) {
   const argMap = {
     "${auth_player_name}": opts.username,
     "${version_name}": opts.version,
@@ -564,19 +594,64 @@ function buildLaunchArgs(versionJson, opts) {
     "${version_type}": "release",
     "${resolution_width}": opts.width,
     "${resolution_height}": opts.height,
+    "${library_directory}": opts.librariesDir,
+    "${classpath_separator}": path.delimiter,
+    "${primary_jar}": opts.classpath.split(path.delimiter)[0],
+    "${natives_directory}": opts.nativesDir,
+    "${launcher_name}": "ALaunchi",
+    "${launcher_version}": "1.0",
+    "${classpath}": opts.classpath,
   };
 
-  const rawArgs = versionJson.arguments?.game || versionJson.minecraftArguments?.split(" ") || [];
-  const gameArgs = [];
-  for (const arg of rawArgs) {
-    if (typeof arg === "string") {
-      let resolved = arg;
-      for (const [k, v] of Object.entries(argMap)) resolved = resolved.replace(k, v);
-      gameArgs.push(resolved);
+  function resolveArg(arg) {
+    let resolved = arg;
+    for (const [k, v] of Object.entries(argMap)) {
+      resolved = resolved.replaceAll(k, v);
     }
+    return resolved;
   }
 
-  return [...jvmArgs, versionJson.mainClass, ...gameArgs];
+  function expandArgs(rawList) {
+    const out = [];
+    for (const entry of rawList) {
+      if (typeof entry === "string") {
+        out.push(resolveArg(entry));
+      } else if (entry && typeof entry === "object" && entry.value) {
+        const vals = Array.isArray(entry.value) ? entry.value : [entry.value];
+        for (const v of vals) out.push(resolveArg(v));
+      }
+    }
+    return out;
+  }
+
+  const baseJvmArgs = [
+    "-Xmx2G", "-Xms512M",
+    `-Djava.library.path=${opts.nativesDir}`,
+    "-Dminecraft.launcher.brand=ALaunchi",
+    "-Dminecraft.launcher.version=1.0",
+  ];
+
+  const loaderJvmArgs = loaderProfile?.arguments?.jvm
+    ? expandArgs(loaderProfile.arguments.jvm)
+    : [];
+
+  const classpathArgs = ["-cp", opts.classpath];
+
+  const rawGameArgs = versionJson.arguments?.game || versionJson.minecraftArguments?.split(" ") || [];
+  const gameArgs = expandArgs(rawGameArgs);
+  const loaderGameArgs = loaderProfile?.arguments?.game
+    ? expandArgs(loaderProfile.arguments.game)
+    : [];
+
+  const allGameArgs = [...gameArgs, ...loaderGameArgs];
+
+  return [
+    ...baseJvmArgs,
+    ...loaderJvmArgs,
+    ...classpathArgs,
+    versionJson.mainClass,
+    ...allGameArgs,
+  ];
 }
 
 async function getJavaPath() {

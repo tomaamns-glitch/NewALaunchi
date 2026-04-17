@@ -39,8 +39,12 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
           installing_loader: "Instalando modloader...",
           launching: "Iniciando Minecraft...",
           launched: "¡Lanzado!",
+          error: data.message ? `Error: ${data.message}` : "Error al lanzar",
         };
         setLaunchStage(stages[data.stage] || data.stage);
+        if (data.stage === "launched" || data.stage === "error") {
+          setTimeout(() => setStatus("idle"), data.stage === "error" ? 6000 : 3000);
+        }
       }
     });
     return off;
