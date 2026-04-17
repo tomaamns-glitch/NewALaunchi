@@ -36,7 +36,7 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
           downloading_client: "Descargando cliente Minecraft...",
           downloading_assets: "Descargando assets...",
           downloading_libraries: "Descargando librerías...",
-          installing_loader: "Instalando modloader...",
+          installing_loader: data.msg || "Instalando modloader...",
           launching: "Iniciando Minecraft...",
           launched: "¡Lanzado!",
           error: data.message ? `Error: ${data.message}` : "Error al lanzar",
