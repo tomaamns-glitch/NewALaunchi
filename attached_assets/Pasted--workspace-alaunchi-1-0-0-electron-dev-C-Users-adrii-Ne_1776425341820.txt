@@ -1,0 +1,27 @@
+
+> @workspace/alaunchi@1.0.0 electron:dev C:\Users\adrii\NewALaunchi\artifacts\alaunchi
+> concurrently -k --names "VITE,ELECTRON" -c "cyan,yellow" "vite --config vite.electron.config.ts" "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron ."
+
+[VITE] 
+[VITE]   VITE v7.3.1  ready in 392 ms
+[VITE]
+[VITE]   ➜  Local:   http://localhost:5173/
+[VITE]   ➜  Network: http://192.168.1.131:5173/
+[ELECTRON] 
+[ELECTRON] [17768:0417/132830.798:ERROR:CONSOLE(1)] "Request Autofill.enable failed. {"code":-32601,"message":"'Autofill.enable' wasn't found"}", source: devtools://devtools/bundled/core/protocol_client/protocol_client.js (1)
+[ELECTRON] [17768:0417/132830.798:ERROR:CONSOLE(1)] "Request Autofill.setAddresses failed. {"code":-32601,"message":"'Autofill.setAddresses' wasn't found"}", source: devtools://devtools/bundled/core/protocol_client/protocol_client.js (1)
+[ELECTRON] [NeoForge] Usando versión 21.1.226
+[ELECTRON] [NeoForge] Error: Command failed: "java" -jar "C:\Users\adrii\.alaunchi\cache\neoforge-21.1.226-installer.jar" --installClient "C:\Users\adrii\.alaunchi\cache\neoforge-21.1.226"
+[ELECTRON]
+[ELECTRON] Error occurred in handler for 'mc:launch': Error: No se pudo instalar NeoForge para MC 1.21.1: Command failed: "java" -jar "C:\Users\adrii\.alaunchi\cache\neoforge-21.1.226-installer.jar" --installClient "C:\Users\adrii\.alaunchi\cache\neoforge-21.1.226"
+[ELECTRON]
+[ELECTRON]     at C:\Users\adrii\NewALaunchi\artifacts\alaunchi\electron\main.js:374:13
+[ELECTRON]     at async WebContents.<anonymous> (node:electron/js2c/browser_init:2:87428)
+[ELECTRON] [NeoForge] Usando versión 21.1.226
+[ELECTRON] [NeoForge] Error: Command failed: "java" -jar "C:\Users\adrii\.alaunchi\cache\neoforge-21.1.226-installer.jar" --installClient "C:\Users\adrii\.alaunchi\cache\neoforge-21.1.226"
+[ELECTRON]
+[ELECTRON] Error occurred in handler for 'mc:launch': Error: No se pudo instalar NeoForge para MC 1.21.1: Command failed: "java" -jar "C:\Users\adrii\.alaunchi\cache\neoforge-21.1.226-installer.jar" --installClient "C:\Users\adrii\.alaunchi\cache\neoforge-21.1.226"
+[ELECTRON]
+[ELECTRON]     at C:\Users\adrii\NewALaunchi\artifacts\alaunchi\electron\main.js:374:13
+[ELECTRON]     at async WebContents.<anonymous> (node:electron/js2c/browser_init:2:87428)
+

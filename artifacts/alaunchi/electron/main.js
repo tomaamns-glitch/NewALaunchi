@@ -356,7 +356,8 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
       console.log(`[NeoForge] Usando versión ${neoforgeVersion}`);
       const { profile, installLibsDir } = await runForgeInstaller(
         "neoforge", neoforgeVersion, mcVersion,
-        (msg) => win?.webContents.send("launch-status", { modpackId, stage: "installing_loader", msg })
+        (msg) => win?.webContents.send("launch-status", { modpackId, stage: "installing_loader", msg }),
+        clientJarPath
       );
       loaderProfile = profile;
       loaderLibsDir = installLibsDir;
@@ -383,7 +384,8 @@ ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, au
       console.log(`[Forge] Usando versión ${forgeVersion}`);
       const { profile, installLibsDir } = await runForgeInstaller(
         "forge", forgeVersion, mcVersion,
-        (msg) => win?.webContents.send("launch-status", { modpackId, stage: "installing_loader", msg })
+        (msg) => win?.webContents.send("launch-status", { modpackId, stage: "installing_loader", msg }),
+        clientJarPath
       );
       loaderProfile = profile;
       loaderLibsDir = installLibsDir;
@@ -530,7 +532,7 @@ async function extractJsonFromJar(jarPath, entryName) {
   }
 }
 
-async function runForgeInstaller(loaderType, loaderVersion, mcVersion, sendStatus) {
+async function runForgeInstaller(loaderType, loaderVersion, mcVersion, sendStatus, existingClientJar = null) {
   let versionId, installerFilename, installerUrl;
 
   if (loaderType === "neoforge") {
@@ -567,30 +569,51 @@ async function runForgeInstaller(loaderType, loaderVersion, mcVersion, sendStatu
     return { profile, installLibsDir };
   }
 
+  await fs.rm(installDir, { recursive: true, force: true }).catch(() => {});
   await fs.mkdir(installDir, { recursive: true });
 
-  const installerPath = path.join(CACHE_DIR, installerFilename);
-  if (!fsSync.existsSync(installerPath)) {
-    sendStatus?.("Descargando instalador...");
-    await downloadFile(installerUrl, installerPath, () => {});
+  if (existingClientJar && fsSync.existsSync(existingClientJar)) {
+    const mcVersionsDir = path.join(installDir, "versions", mcVersion);
+    await fs.mkdir(mcVersionsDir, { recursive: true });
+    await fs.copyFile(existingClientJar, path.join(mcVersionsDir, `${mcVersion}.jar`)).catch(() => {});
   }
 
-  sendStatus?.("Ejecutando instalador (1-2 min primera vez)...");
+  const installerPath = path.join(CACHE_DIR, installerFilename);
+  sendStatus?.("Descargando instalador...");
+  await downloadFile(installerUrl, installerPath, () => {});
+
+  sendStatus?.("Instalando (1-2 min, solo la primera vez)...");
   const javaExe = await getJavaPath() || "java";
 
+  let installerError = null;
   try {
-    await execAsync(
-      `"${javaExe}" -jar "${installerPath}" --installClient "${installDir}"`,
-      { timeout: 300000 }
+    const { stdout, stderr } = await execAsync(
+      `"${javaExe}" -Djava.awt.headless=true -Djava.net.preferIPv4Stack=true -jar "${installerPath}" --installClient`,
+      { cwd: installDir, timeout: 300000, maxBuffer: 50 * 1024 * 1024 }
     );
-  } finally {
-    await fs.unlink(installerPath).catch(() => {});
+    if (stdout) console.log("[Installer stdout]", stdout.slice(-3000));
+    if (stderr) console.log("[Installer stderr]", stderr.slice(-1000));
+  } catch (e) {
+    installerError = e;
+    console.error("[Installer] Non-zero exit, checking if files were created...");
+    console.error("[Installer] STDOUT:", e.stdout?.slice(-3000));
+    console.error("[Installer] STDERR:", e.stderr?.slice(-1000));
   }
+
+  await fs.unlink(installerPath).catch(() => {});
 
   const installedJson = fsSync.existsSync(versionJsonPath)
     ? versionJsonPath
     : await findVersionJson();
-  if (!installedJson) throw new Error("El instalador terminó pero no se encontró el version.json resultante");
+
+  if (!installedJson) {
+    await fs.rm(installDir, { recursive: true, force: true }).catch(() => {});
+    const errMsg = installerError
+      ? `${installerError.stderr?.slice(-1500) || installerError.stdout?.slice(-1500) || installerError.message}`
+      : "No se encontró el version.json resultante";
+    throw new Error(`Installer de ${loaderType} falló:\n${errMsg}`);
+  }
+  console.log("[Installer] Éxito, versión JSON en:", installedJson);
 
   const profile = JSON.parse(await fs.readFile(installedJson, "utf8"));
   return { profile, installLibsDir };
