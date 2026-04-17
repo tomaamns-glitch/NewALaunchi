@@ -106,51 +106,9 @@ async function putFileContents(
   });
 }
 
-const MOCK_MODPACKS: Modpack[] = [
-  {
-    id: "vanilla-plus",
-    name: "VANILLA+",
-    description: "Una experiencia vanilla mejorada con calidad de vida.",
-    minecraftVersion: "1.20.4",
-    loaderType: "vanilla",
-    version: "1.0.0",
-    imageUrl: "/vanilla-plus.png",
-    installed: false,
-    updateAvailable: false,
-    fileCount: 45,
-    totalSizeMb: 250,
-  },
-  {
-    id: "magic-tech",
-    name: "MAGIA & TECH",
-    description: "Mods de tecnología y magia para exploración sin límites.",
-    minecraftVersion: "1.20.1",
-    loaderType: "fabric",
-    version: "2.1.0",
-    imageUrl: "/magic-tech.png",
-    installed: false,
-    updateAvailable: false,
-    fileCount: 180,
-    totalSizeMb: 600,
-  },
-  {
-    id: "survival-pro",
-    name: "SURVIVAL PRO",
-    description: "Overhaul completo de supervivencia hardcore.",
-    minecraftVersion: "1.19.2",
-    loaderType: "forge",
-    version: "3.5.1",
-    imageUrl: "/survival-pro.png",
-    installed: false,
-    updateAvailable: false,
-    fileCount: 120,
-    totalSizeMb: 400,
-  },
-];
-
 export async function fetchModpacks(repoUrl: string): Promise<Modpack[]> {
   const parsed = parseRepo(repoUrl);
-  if (!parsed) return MOCK_MODPACKS;
+  if (!parsed) return [];
 
   try {
     const res = await fetch(rawUrl(parsed.owner, parsed.repo, "modpacks.json"), {
