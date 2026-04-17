@@ -532,6 +532,12 @@ async function extractJsonFromJar(jarPath, entryName) {
   }
 }
 
+function getMinecraftDir() {
+  if (process.platform === "win32") return path.join(process.env.APPDATA, ".minecraft");
+  if (process.platform === "darwin") return path.join(os.homedir(), "Library", "Application Support", "minecraft");
+  return path.join(os.homedir(), ".minecraft");
+}
+
 async function runForgeInstaller(loaderType, loaderVersion, mcVersion, sendStatus, existingClientJar = null) {
   let versionId, installerFilename, installerUrl;
 
@@ -546,36 +552,25 @@ async function runForgeInstaller(loaderType, loaderVersion, mcVersion, sendStatu
     installerUrl = `https://maven.minecraftforge.net/net/minecraftforge/forge/${fullVersion}/${installerFilename}`;
   }
 
-  const installDir = path.join(CACHE_DIR, versionId);
-  const versionJsonPath = path.join(installDir, "versions", versionId, `${versionId}.json`);
-  const installLibsDir = path.join(installDir, "libraries");
+  const mcDir = getMinecraftDir();
+  const mcVersionJsonPath = path.join(mcDir, "versions", versionId, `${versionId}.json`);
+  const mcLibrariesDir = path.join(mcDir, "libraries");
 
-  async function findVersionJson() {
-    const versionsDir = path.join(installDir, "versions");
+  async function findVersionJsonIn(baseDir) {
+    const versionsDir = path.join(baseDir, "versions");
     const dirs = await fs.readdir(versionsDir).catch(() => []);
     for (const dir of dirs) {
+      if (!dir.toLowerCase().includes(loaderType) && !dir.toLowerCase().includes("forge")) continue;
       const candidate = path.join(versionsDir, dir, `${dir}.json`);
-      if (fsSync.existsSync(candidate)) return candidate;
+      if (fsSync.existsSync(candidate)) return { jsonPath: candidate, libsDir: path.join(baseDir, "libraries") };
     }
     return null;
   }
 
-  const existingJson = fsSync.existsSync(versionJsonPath)
-    ? versionJsonPath
-    : await findVersionJson();
-
-  if (existingJson) {
-    const profile = JSON.parse(await fs.readFile(existingJson, "utf8"));
-    return { profile, installLibsDir };
-  }
-
-  await fs.rm(installDir, { recursive: true, force: true }).catch(() => {});
-  await fs.mkdir(installDir, { recursive: true });
-
-  if (existingClientJar && fsSync.existsSync(existingClientJar)) {
-    const mcVersionsDir = path.join(installDir, "versions", mcVersion);
-    await fs.mkdir(mcVersionsDir, { recursive: true });
-    await fs.copyFile(existingClientJar, path.join(mcVersionsDir, `${mcVersion}.jar`)).catch(() => {});
+  if (fsSync.existsSync(mcVersionJsonPath)) {
+    console.log("[Installer] Using existing profile from:", mcVersionJsonPath);
+    const profile = JSON.parse(await fs.readFile(mcVersionJsonPath, "utf8"));
+    return { profile, installLibsDir: mcLibrariesDir };
   }
 
   const installerPath = path.join(CACHE_DIR, installerFilename);
@@ -588,35 +583,37 @@ async function runForgeInstaller(loaderType, loaderVersion, mcVersion, sendStatu
   let installerError = null;
   try {
     const { stdout, stderr } = await execAsync(
-      `"${javaExe}" -Djava.awt.headless=true -Djava.net.preferIPv4Stack=true -jar "${installerPath}" --installClient`,
-      { cwd: installDir, timeout: 300000, maxBuffer: 50 * 1024 * 1024 }
+      `"${javaExe}" -Djava.awt.headless=true -jar "${installerPath}" --installClient`,
+      { timeout: 300000, maxBuffer: 50 * 1024 * 1024 }
     );
     if (stdout) console.log("[Installer stdout]", stdout.slice(-3000));
     if (stderr) console.log("[Installer stderr]", stderr.slice(-1000));
   } catch (e) {
     installerError = e;
-    console.error("[Installer] Non-zero exit, checking if files were created...");
+    console.error("[Installer] Non-zero exit, checking if installed correctly...");
     console.error("[Installer] STDOUT:", e.stdout?.slice(-3000));
     console.error("[Installer] STDERR:", e.stderr?.slice(-1000));
   }
 
   await fs.unlink(installerPath).catch(() => {});
 
-  const installedJson = fsSync.existsSync(versionJsonPath)
-    ? versionJsonPath
-    : await findVersionJson();
-
-  if (!installedJson) {
-    await fs.rm(installDir, { recursive: true, force: true }).catch(() => {});
-    const errMsg = installerError
-      ? `${installerError.stderr?.slice(-1500) || installerError.stdout?.slice(-1500) || installerError.message}`
-      : "No se encontró el version.json resultante";
-    throw new Error(`Installer de ${loaderType} falló:\n${errMsg}`);
+  if (fsSync.existsSync(mcVersionJsonPath)) {
+    console.log("[Installer] Éxito, versión JSON en:", mcVersionJsonPath);
+    const profile = JSON.parse(await fs.readFile(mcVersionJsonPath, "utf8"));
+    return { profile, installLibsDir: mcLibrariesDir };
   }
-  console.log("[Installer] Éxito, versión JSON en:", installedJson);
 
-  const profile = JSON.parse(await fs.readFile(installedJson, "utf8"));
-  return { profile, installLibsDir };
+  const found = await findVersionJsonIn(mcDir);
+  if (found) {
+    console.log("[Installer] Éxito (encontrado en búsqueda), versión JSON en:", found.jsonPath);
+    const profile = JSON.parse(await fs.readFile(found.jsonPath, "utf8"));
+    return { profile, installLibsDir: found.libsDir };
+  }
+
+  const errMsg = installerError
+    ? `${installerError.stderr?.slice(-1500) || installerError.stdout?.slice(-1500) || installerError.message}`
+    : "No se encontró el version.json resultante";
+  throw new Error(`Installer de ${loaderType} falló:\n${errMsg}`);
 }
 
 async function resolveModloaderLibrary(lib, librariesDir, mavenBases, installLibsDir = null) {
