@@ -168,7 +168,23 @@ ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files }
   const resourcepacksDir = path.join(instanceDir, "resourcepacks");
   const shaderpacks = path.join(instanceDir, "shaderpacks");
 
-  await fs.mkdir(instanceDir, { recursive: true });
+  const hasBundle = (files || []).some((f) => {
+    const isZip = f.filename?.toLowerCase().endsWith(".zip");
+    return f.type === "bundle" || (isZip && f.type === "mod");
+  });
+  const instanceExists = fsSync.existsSync(instanceDir);
+
+  if (hasBundle && instanceExists) {
+    const metaPath = path.join(instanceDir, "alaunchi-meta.json");
+    let metaContent = null;
+    try { metaContent = await fs.readFile(metaPath, "utf8"); } catch {}
+    await fs.rm(instanceDir, { recursive: true, force: true });
+    await fs.mkdir(instanceDir, { recursive: true });
+    if (metaContent) await fs.writeFile(metaPath, metaContent);
+  } else {
+    await fs.mkdir(instanceDir, { recursive: true });
+  }
+
   await fs.mkdir(modsDir, { recursive: true });
   await fs.mkdir(resourcepacksDir, { recursive: true });
   await fs.mkdir(shaderpacks, { recursive: true });
@@ -221,15 +237,30 @@ ipcMain.handle("mc:update-modpack", async (event, { modpackId, filesToDelete, fi
 
   win?.webContents.send("install-progress", { modpackId, stage: "updating", progress: 0 });
 
-  for (const filename of (filesToDelete || [])) {
-    const possiblePaths = [
-      path.join(instanceDir, "mods", filename),
-      path.join(instanceDir, "resourcepacks", filename),
-      path.join(instanceDir, "shaderpacks", filename),
-      path.join(instanceDir, filename),
-    ];
-    for (const p of possiblePaths) {
-      if (fsSync.existsSync(p)) { await fs.unlink(p); break; }
+  const deletingBundle = (filesToDelete || []).some((f) => f.toLowerCase().endsWith(".zip"));
+  const addingBundle = (filesToAdd || []).some((f) => {
+    const isZip = f.filename?.toLowerCase().endsWith(".zip");
+    return f.type === "bundle" || (isZip && f.type === "mod");
+  });
+
+  if (deletingBundle && addingBundle) {
+    const metaPath = path.join(instanceDir, "alaunchi-meta.json");
+    let metaContent = null;
+    try { metaContent = await fs.readFile(metaPath, "utf8"); } catch {}
+    await fs.rm(instanceDir, { recursive: true, force: true });
+    await fs.mkdir(instanceDir, { recursive: true });
+    if (metaContent) await fs.writeFile(metaPath, metaContent);
+  } else {
+    for (const filename of (filesToDelete || [])) {
+      const possiblePaths = [
+        path.join(instanceDir, "mods", filename),
+        path.join(instanceDir, "resourcepacks", filename),
+        path.join(instanceDir, "shaderpacks", filename),
+        path.join(instanceDir, filename),
+      ];
+      for (const p of possiblePaths) {
+        if (fsSync.existsSync(p)) { await fs.unlink(p); break; }
+      }
     }
   }
 

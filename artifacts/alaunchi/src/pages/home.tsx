@@ -71,7 +71,11 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
     try {
       if (pack.updateAvailable) {
         setStatus("updating");
-        await installModpack(pack.id, [], (p) => setProgress(p));
+        setProgress(0);
+        const repoUrl = localStorage.getItem("githubRepo") ?? "";
+        const token = localStorage.getItem("githubToken") ?? "";
+        const newFiles = await fetchModpackFiles(repoUrl, pack.id, token || undefined);
+        await installModpack(pack.id, newFiles as any, (p) => setProgress(p));
         updateModpackStatus(pack.id, { updateAvailable: false, installedVersion: pack.version });
         toast.success(`${pack.name} actualizado.`);
       }

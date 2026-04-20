@@ -3,7 +3,7 @@ export const isElectron = !!eAPI;
 
 export interface ModFile {
   filename: string;
-  type: "mod" | "resourcepack" | "shader" | "config";
+  type: "mod" | "resourcepack" | "shader" | "config" | "bundle";
   sizeMb: number;
   downloadUrl?: string;
 }

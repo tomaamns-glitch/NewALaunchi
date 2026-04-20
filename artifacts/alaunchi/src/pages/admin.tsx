@@ -122,12 +122,28 @@ export default function Admin() {
     setSelectedToDelete(next);
   };
 
+  const isBundleFile = (f: ModFile) =>
+    f.type === "bundle" || (f.type === "mod" && f.filename.toLowerCase().endsWith(".zip"));
+
+  const currentBundles = files.filter(isBundleFile);
+  const hasBundle = currentBundles.length > 0;
+
+  const addFiles = (newFiles: File[]) => {
+    const filtered = newFiles.filter((f) => f.name.endsWith(".jar") || f.name.endsWith(".zip"));
+    setFilesToAdd((prev) => [...prev, ...filtered]);
+    const hasNewZip = filtered.some((f) => f.name.endsWith(".zip"));
+    if (hasNewZip && hasBundle) {
+      setSelectedToDelete((prev) => {
+        const next = new Set(prev);
+        currentBundles.forEach((b) => next.add(b.filename));
+        return next;
+      });
+    }
+  };
+
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const dropped = Array.from(e.dataTransfer.files).filter(
-      (f) => f.name.endsWith(".jar") || f.name.endsWith(".zip")
-    );
-    setFilesToAdd((prev) => [...prev, ...dropped]);
+    addFiles(Array.from(e.dataTransfer.files));
   };
 
   if (!authenticated) {
@@ -294,13 +310,21 @@ export default function Admin() {
                               />
                               <Label
                                 htmlFor={`del-${f.filename}`}
-                                className="text-sm text-gray-300 cursor-pointer font-mono"
+                                className="text-sm text-gray-300 cursor-pointer font-mono flex items-center gap-2"
                               >
                                 {f.filename}
-                                <span className="ml-2 text-xs text-muted-foreground">({f.sizeMb} MB)</span>
+                                {isBundleFile(f) && (
+                                  <span className="text-[10px] bg-accent/20 text-accent border border-accent/30 rounded px-1 py-0.5 font-sans">bundle</span>
+                                )}
+                                <span className="text-xs text-muted-foreground">({f.sizeMb} MB)</span>
                               </Label>
                             </div>
                           ))
+                        )}
+                        {hasBundle && (
+                          <p className="text-xs text-muted-foreground border-t border-white/5 pt-3 mt-1">
+                            Al subir un nuevo zip, el bundle anterior se marcará para eliminar automáticamente.
+                          </p>
                         )}
                       </div>
                     </div>
@@ -323,7 +347,7 @@ export default function Admin() {
                           accept=".jar,.zip"
                           className="absolute inset-0 opacity-0 cursor-pointer"
                           onChange={(e) => {
-                            if (e.target.files) setFilesToAdd((p) => [...p, ...Array.from(e.target.files!)]);
+                            if (e.target.files) addFiles(Array.from(e.target.files));
                           }}
                         />
                       </div>
