@@ -1,0 +1,89 @@
+Scope: all 9 workspace projects
+Lockfile is up to date, resolution step is skipped
+Packages: +782
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 782, reused 782, downloaded 0, added 782, 
+done
+devDependencies:
++ prettier 3.8.1
++ typescript 5.9.3
+Done in 4s using pnpm v10.33.0
+> @workspace/alaunchi@1.0.0 electron:build:mac /Users/
+sergii/NewALaunchi/artifacts/alaunchi
+> vite build --config vite.electron.config.ts && electron
+builder --mac
+/Users/sergii/NewALaunchi/node_modules/.pnpm/rollup@4.59.0/
+node_modules/rollup/dist/native.js:115
+throw new Error(
+      ^
+Error: Cannot find module @rollup/rollup-darwin-arm64. npm 
+has a bug related to optional dependencies (https://
+github.com/npm/cli/issues/4828). Please try `npm i` again 
+after removing both package-lock.json and node_modules 
+directory.
+    at requireWithFriendlyError (/Users/sergii/NewALaunchi/
+node_modules/
+.pnpm/rollup@4.59.0/node_modules/
+rollup/dist/
+native.js:115:9)
+    at Object.<anonymous> (/Users/sergii/NewALaunchi/
+node_modules/
+.pnpm/rollup@4.59.0/node_modules/
+rollup/dist/
+native.js:124:76)
+    at Module._compile (node:internal/modules/cjs/
+loader:1830:14)
+    at Object..js (node:internal/modules/cjs/loader:1961:10)
+    at Module.load (node:internal/modules/cjs/
+loader:1553:32)
+    at Module._load (node:internal/modules/cjs/
+loader:1355:12)
+    at wrapModuleLoad (node:internal/modules/cjs/
+loader:255:19)
+    at loadCJSModuleWithModuleLoad (node:internal/modules/
+esm/translators:326:3)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/
+translators:231:7)
+    at ModuleJob.run (node:internal/modules/esm/
+module_job:437:25) {
+  [cause]: Error: Cannot find module '@rollup/rollup-darwin
+arm64'
+  Require stack:
+  - /Users/sergii/NewALaunchi/node_modules/.pnpm/
+rollup@4.59.0/node_modules/rollup/dist/native.js
+      at Module._resolveFilename (node:internal/modules/cjs/
+loader:1476:15)
+      at wrapResolveFilename (node:internal/modules/cjs/
+loader:1049:27)
+      at defaultResolveImplForCJSLoading (node:internal/
+modules/cjs/loader:1073:10)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/
+loader:1094:12)
+      at Module._load (node:internal/modules/cjs/
+loader:1262:25)
+      at wrapModuleLoad (node:internal/modules/cjs/
+loader:255:19)
+      at Module.require (node:internal/modules/cjs/
+loader:1576:12)
+      at require (node:internal/modules/helpers:153:16)
+      at requireWithFriendlyError (/Users/sergii/
+NewALaunchi/node_modules/
+.pnpm/rollup@4.59.0/node_modules/
+rollup/dist/native.js:97:10)
+      at Object.<anonymous> (/Users/sergii/NewALaunchi/
+node_modules/
+.pnpm/rollup@4.59.0/node_modules/
+native.js:124:76) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [
+rollup/dist/
+      '/Users/sergii/NewALaunchi/node_modules/.pnpm/
+rollup@4.59.0/node_modules/rollup/dist/native.js'
+    ]
+  }
+}
+Node.js v24.15.0
+ELIFECYCLE  Command failed with exit code 1.
+sergii@MacBook-Pro-de-Sergio alaunchi %
