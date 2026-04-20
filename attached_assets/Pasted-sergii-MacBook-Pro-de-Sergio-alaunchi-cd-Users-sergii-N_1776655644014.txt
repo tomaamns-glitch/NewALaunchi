@@ -1,0 +1,43 @@
+sergii@MacBook-Pro-de-Sergio alaunchi % cd /Users/sergii/NewALaunchi
+pnpm add -w @rollup/rollup-darwin-arm64
+cd artifacts/alaunchi
+pnpm run electron:build:mac
+ WARN  11 deprecated subdependencies found: @npmcli/move-file@2.0.1, are-we-there-yet@3.0.1, boolean@3.2.0, gauge@4.0.4, glob@10.5.0, glob@7.2.3, glob@8.1.0, inflight@1.0.6, npmlog@6.0.2, rimraf@3.0.2, tar@6.2.1
+Progress: resolved 791, reused 0, downloaded 0, added 0, done
+ WARN  Issues with peer dependencies found
+artifacts/alaunchi
+└─┬ electron-builder 25.1.8
+  ├─┬ dmg-builder 25.1.8
+  │ └─┬ app-builder-lib 25.1.8
+  │   └── ✕ missing peer electron-builder-squirrel-windows@25.1.8
+  └─┬ app-builder-lib 25.1.8
+    └── ✕ missing peer electron-builder-squirrel-windows@25.1.8
+Peer dependencies that should be installed:
+  electron-builder-squirrel-windows@25.1.8
+
+dependencies:
++ @rollup/rollup-darwin-arm64 ^4.60.2
+
+Packages: +1
++
+Done in 1.6s using pnpm v10.33.0
+
+> @workspace/alaunchi@1.0.0 electron:build:mac /Users/sergii/NewALaunchi/artifacts/alaunchi
+> vite build --config vite.electron.config.ts && electron-builder --mac
+
+failed to load config from /Users/sergii/NewALaunchi/artifacts/alaunchi/vite.electron.config.ts
+error during build:
+Error: Cannot find module '../lightningcss.darwin-arm64.node'
+Require stack:
+- /Users/sergii/NewALaunchi/node_modules/.pnpm/lightningcss@1.32.0/node_modules/lightningcss/node/index.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1476:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1049:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1073:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1094:12)
+    at Module._load (node:internal/modules/cjs/loader:1262:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.require (node:internal/modules/cjs/loader:1576:12)
+    at require (node:internal/modules/helpers:153:16)
+    at Object.<anonymous> (/Users/sergii/NewALaunchi/node_modules/.pnpm/lightningcss@1.32.0/node_modules/lightningcss/node/index.js:20:12)
+    at Module._compile (node:internal/modules/cjs/loader:1830:14)
+ ELIFECYCLE  Command failed with exit code 1.
