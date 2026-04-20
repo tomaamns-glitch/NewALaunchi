@@ -17,11 +17,169 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash, Upload, Lock, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash, Upload, Lock, Loader2, Folder, FolderOpen, ChevronRight, ChevronDown, File } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { publishUpdate, fetchModpackFiles, createModpack, ModFile, NewModpackData, PendingFile } from "@/services/github";
 
 const LOADERS = ["forge", "fabric", "neoforge", "vanilla"] as const;
+
+function FolderGroup({
+  name,
+  files,
+  selectedToDelete,
+  toggleDelete,
+  fileDeleteKey,
+  allSelected,
+  onToggleAll,
+}: {
+  name: string;
+  files: ModFile[];
+  selectedToDelete: Set<string>;
+  toggleDelete: (k: string) => void;
+  fileDeleteKey: (f: ModFile) => string;
+  allSelected: boolean;
+  onToggleAll: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const someSelected = files.some((f) => selectedToDelete.has(fileDeleteKey(f)));
+
+  return (
+    <div className="rounded border border-white/5 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-2 px-2 py-1.5 bg-white/5 hover:bg-white/8 text-xs text-gray-200 font-medium"
+      >
+        <Checkbox
+          checked={allSelected}
+          onCheckedChange={onToggleAll}
+          onClick={(e) => e.stopPropagation()}
+          className={`h-3 w-3 border-white/30 ${someSelected && !allSelected ? "data-[state=unchecked]:bg-destructive/30" : ""} data-[state=checked]:bg-destructive data-[state=checked]:border-destructive`}
+        />
+        {open ? <FolderOpen className="h-3.5 w-3.5 text-amber-400 shrink-0" /> : <Folder className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+        <span className="flex-1 text-left truncate">{name}/</span>
+        <span className="text-muted-foreground font-normal">{files.length}</span>
+        {open ? <ChevronDown className="h-3 w-3 text-gray-500" /> : <ChevronRight className="h-3 w-3 text-gray-500" />}
+      </button>
+      {open && (
+        <div className="px-2 py-1 space-y-0.5">
+          {files.map((f) => {
+            const key = fileDeleteKey(f);
+            const displayName = f.path ? f.path.split("/").slice(1).join("/") : f.filename;
+            return (
+              <div key={key} className="flex items-center gap-2 py-0.5 pl-4">
+                <Checkbox
+                  id={`del-${key}`}
+                  checked={selectedToDelete.has(key)}
+                  onCheckedChange={() => toggleDelete(key)}
+                  className="h-3 w-3 border-white/20 data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                />
+                <Label htmlFor={`del-${key}`} className="text-xs text-gray-300 cursor-pointer font-mono flex items-center gap-1.5 flex-1 min-w-0">
+                  <File className="h-3 w-3 text-gray-500 shrink-0" />
+                  <span className="truncate">{displayName}</span>
+                  <span className="text-[10px] bg-white/10 text-gray-400 rounded px-1 font-sans shrink-0">{f.type}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">{f.sizeMb}MB</span>
+                </Label>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PendingFileTree({
+  filesToAdd,
+  updateFileType,
+  removeFileToadd,
+  FILE_TYPES,
+  typeLabel,
+}: {
+  filesToAdd: PendingFile[];
+  updateFileType: (i: number, t: ModFile["type"]) => void;
+  removeFileToadd: (i: number) => void;
+  FILE_TYPES: ModFile["type"][];
+  typeLabel: Record<ModFile["type"], string>;
+}) {
+  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+
+  const grouped: Record<string, Array<{ pf: PendingFile; i: number }>> = {};
+  filesToAdd.forEach((pf, i) => {
+    const group = pf.relativePath ? pf.relativePath.split("/")[0] : "__flat";
+    if (!grouped[group]) grouped[group] = [];
+    grouped[group].push({ pf, i });
+  });
+
+  const toggleFolder = (name: string) => {
+    setOpenFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const folderNames = Object.keys(grouped).filter((k) => k !== "__flat");
+    if (folderNames.length > 0) {
+      setOpenFolders((prev) => {
+        const next = new Set(prev);
+        folderNames.forEach((k) => next.add(k));
+        return next;
+      });
+    }
+  }, [filesToAdd.length]);
+
+  return (
+    <div className="space-y-1">
+      {Object.entries(grouped).map(([group, items]) => {
+        if (group === "__flat") {
+          return items.map(({ pf, i }) => (
+            <div key={i} className="flex items-center gap-2 text-sm bg-white/5 rounded px-2 py-1.5">
+              <File className="h-3 w-3 text-gray-500 shrink-0" />
+              <span className="font-mono text-gray-300 truncate flex-1 min-w-0 text-xs">{pf.file.name}</span>
+              <select
+                value={pf.type}
+                onChange={(e) => updateFileType(i, e.target.value as ModFile["type"])}
+                className="bg-background border border-white/10 text-gray-300 text-xs rounded px-1 py-0.5 shrink-0"
+              >
+                {FILE_TYPES.map((t) => <option key={t} value={t}>{typeLabel[t]}</option>)}
+              </select>
+              <button className="text-destructive hover:text-destructive/80 shrink-0 text-xs" onClick={() => removeFileToadd(i)}>✕</button>
+            </div>
+          ));
+        }
+        const isOpen = openFolders.has(group);
+        return (
+          <div key={group} className="rounded border border-white/5 overflow-hidden">
+            <button
+              onClick={() => toggleFolder(group)}
+              className="w-full flex items-center gap-2 px-2 py-1.5 bg-white/5 hover:bg-white/8 text-xs text-gray-200 font-medium"
+            >
+              {isOpen ? <FolderOpen className="h-3.5 w-3.5 text-amber-400 shrink-0" /> : <Folder className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+              <span className="flex-1 text-left">{group}/</span>
+              <span className="text-muted-foreground font-normal">{items.length} archivos</span>
+              {isOpen ? <ChevronDown className="h-3 w-3 text-gray-500" /> : <ChevronRight className="h-3 w-3 text-gray-500" />}
+            </button>
+            {isOpen && (
+              <div className="px-2 py-1 space-y-0.5">
+                {items.map(({ pf, i }) => {
+                  const displayName = pf.relativePath ? pf.relativePath.split("/").slice(1).join("/") : pf.file.name;
+                  return (
+                    <div key={i} className="flex items-center gap-2 pl-4 py-0.5">
+                      <File className="h-3 w-3 text-gray-500 shrink-0" />
+                      <span className="font-mono text-gray-300 truncate flex-1 min-w-0 text-xs" title={pf.relativePath}>{displayName}</span>
+                      <button className="text-destructive hover:text-destructive/80 shrink-0 text-xs" onClick={() => removeFileToadd(i)}>✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 const emptyForm = (): NewModpackData => ({
   id: "",
@@ -116,9 +274,9 @@ export default function Admin() {
     }
   };
 
-  const toggleDelete = (filename: string) => {
+  const toggleDelete = (key: string) => {
     const next = new Set(selectedToDelete);
-    if (next.has(filename)) next.delete(filename); else next.add(filename);
+    if (next.has(key)) next.delete(key); else next.add(key);
     setSelectedToDelete(next);
   };
 
@@ -144,12 +302,35 @@ export default function Admin() {
     return "config";
   };
 
-  const isBundleFile = (f: ModFile) =>
-    f.type === "bundle" || (f.type === "mod" && f.filename.toLowerCase().endsWith(".zip"));
+  const guessTypeFromPath = (relPath: string): ModFile["type"] | null => {
+    const top = relPath.split("/")[0].toLowerCase();
+    if (top === "mods") return "mod";
+    if (top === "config") return "config";
+    if (top === "resourcepacks") return "resourcepack";
+    if (top === "shaderpacks") return "shader";
+    return null;
+  };
+
+  const SYSTEM_FILES = new Set([".ds_store", "thumbs.db", "desktop.ini", ".gitkeep"]);
+  const isSystemFile = (name: string) => SYSTEM_FILES.has(name.toLowerCase());
 
   const addFiles = (newFiles: File[]) => {
-    const filtered = newFiles.filter((f) => f.name.endsWith(".jar") || f.name.endsWith(".zip") || f.name.endsWith(".json") || f.name.endsWith(".toml") || f.name.endsWith(".cfg"));
+    const filtered = newFiles.filter((f) =>
+      !isSystemFile(f.name) &&
+      (f.name.endsWith(".jar") || f.name.endsWith(".zip") || f.name.endsWith(".json") || f.name.endsWith(".toml") || f.name.endsWith(".cfg") || f.name.endsWith(".properties"))
+    );
     const pending: PendingFile[] = filtered.map((file) => ({ file, type: guessType(file.name) }));
+    setFilesToAdd((prev) => [...prev, ...pending]);
+  };
+
+  const addFolder = (folderFiles: FileList) => {
+    const pending: PendingFile[] = [];
+    for (const file of Array.from(folderFiles)) {
+      if (isSystemFile(file.name)) continue;
+      const relPath = (file as any).webkitRelativePath as string || file.name;
+      const type = guessTypeFromPath(relPath) ?? guessType(file.name);
+      pending.push({ file, type, relativePath: relPath });
+    }
     setFilesToAdd((prev) => [...prev, ...pending]);
   };
 
@@ -165,6 +346,8 @@ export default function Admin() {
     e.preventDefault();
     addFiles(Array.from(e.dataTransfer.files));
   };
+
+  const fileDeleteKey = (f: ModFile) => f.path ?? f.filename;
 
   if (!authenticated) {
     return (
@@ -312,88 +495,126 @@ export default function Admin() {
 
                 {selectedModpack && (
                   <div className="grid md:grid-cols-2 gap-8 pt-4 border-t border-white/5">
+                    {/* ── Eliminar archivos ── */}
                     <div className="space-y-4">
                       <h4 className="font-bold text-white flex items-center gap-2">
                         <Trash className="h-4 w-4 text-destructive" /> Eliminar archivos
                       </h4>
-                      <div className="bg-background/50 border border-white/5 rounded-md p-4 space-y-3 max-h-[280px] overflow-y-auto">
+                      <div className="bg-background/50 border border-white/5 rounded-md p-3 space-y-1 max-h-[320px] overflow-y-auto">
                         {files.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">Este modpack no tiene archivos todavía.</p>
-                        ) : (
-                          files.map((f) => (
-                            <div key={f.filename} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`del-${f.filename}`}
-                                checked={selectedToDelete.has(f.filename)}
-                                onCheckedChange={() => toggleDelete(f.filename)}
-                                className="border-white/20 data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                        ) : (() => {
+                          const grouped: Record<string, ModFile[]> = {};
+                          for (const f of files) {
+                            const group = f.path ? f.path.split("/")[0] : "__root";
+                            if (!grouped[group]) grouped[group] = [];
+                            grouped[group].push(f);
+                          }
+                          const groups = Object.entries(grouped);
+                          return groups.map(([group, groupFiles]) => {
+                            if (group === "__root") {
+                              return groupFiles.map((f) => {
+                                const key = fileDeleteKey(f);
+                                return (
+                                  <div key={key} className="flex items-center space-x-2 py-0.5 pl-1">
+                                    <Checkbox
+                                      id={`del-${key}`}
+                                      checked={selectedToDelete.has(key)}
+                                      onCheckedChange={() => toggleDelete(key)}
+                                      className="border-white/20 data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                                    />
+                                    <Label htmlFor={`del-${key}`} className="text-xs text-gray-300 cursor-pointer font-mono flex items-center gap-1.5 flex-1 min-w-0">
+                                      <File className="h-3 w-3 text-gray-500 shrink-0" />
+                                      <span className="truncate">{f.filename}</span>
+                                      <span className="text-[10px] bg-white/10 text-gray-400 rounded px-1 font-sans shrink-0">{f.type}</span>
+                                    </Label>
+                                  </div>
+                                );
+                              });
+                            }
+                            const allSelected = groupFiles.every((f) => selectedToDelete.has(fileDeleteKey(f)));
+                            return (
+                              <FolderGroup
+                                key={group}
+                                name={group}
+                                files={groupFiles}
+                                selectedToDelete={selectedToDelete}
+                                toggleDelete={toggleDelete}
+                                fileDeleteKey={fileDeleteKey}
+                                allSelected={allSelected}
+                                onToggleAll={() => {
+                                  const next = new Set(selectedToDelete);
+                                  groupFiles.forEach((f) => {
+                                    const k = fileDeleteKey(f);
+                                    if (allSelected) next.delete(k); else next.add(k);
+                                  });
+                                  setSelectedToDelete(next);
+                                }}
                               />
-                              <Label
-                                htmlFor={`del-${f.filename}`}
-                                className="text-sm text-gray-300 cursor-pointer font-mono flex items-center gap-2 flex-1 min-w-0"
-                              >
-                                <span className="truncate">{f.filename}</span>
-                                <span className="text-[10px] bg-white/10 text-gray-400 rounded px-1 py-0.5 font-sans shrink-0">{f.type}</span>
-                                <span className="text-xs text-muted-foreground shrink-0">({f.sizeMb} MB)</span>
-                              </Label>
-                            </div>
-                          ))
-                        )}
+                            );
+                          });
+                        })()}
                       </div>
+                      {selectedToDelete.size > 0 && (
+                        <p className="text-xs text-destructive/80">{selectedToDelete.size} archivo{selectedToDelete.size !== 1 ? "s" : ""} marcado{selectedToDelete.size !== 1 ? "s" : ""} para eliminar</p>
+                      )}
                     </div>
 
+                    {/* ── Añadir archivos ── */}
                     <div className="space-y-4">
                       <h4 className="font-bold text-white flex items-center gap-2">
                         <Upload className="h-4 w-4 text-accent" /> Añadir archivos
                       </h4>
+
                       {filesToAdd.length > 0 ? (
-                        <div className="space-y-2 bg-background/50 border border-white/5 rounded-md p-3 max-h-[280px] overflow-y-auto">
-                          {filesToAdd.map((pf, i) => (
-                            <div key={i} className="flex items-center gap-2 text-sm bg-white/5 rounded px-2 py-1.5">
-                              <span className="font-mono text-gray-300 truncate flex-1 min-w-0 text-xs">{pf.file.name}</span>
-                              <select
-                                value={pf.type}
-                                onChange={(e) => updateFileType(i, e.target.value as ModFile["type"])}
-                                className="bg-background border border-white/10 text-gray-300 text-xs rounded px-1 py-0.5 shrink-0"
-                              >
-                                {FILE_TYPES.map((t) => (
-                                  <option key={t} value={t}>{typeLabel[t]}</option>
-                                ))}
-                              </select>
-                              <button
-                                className="text-destructive hover:text-destructive/80 shrink-0 text-xs"
-                                onClick={() => removeFileToadd(i)}
-                              >✕</button>
+                        <div className="space-y-1 bg-background/50 border border-white/5 rounded-md p-3 max-h-[320px] overflow-y-auto">
+                          <PendingFileTree
+                            filesToAdd={filesToAdd}
+                            updateFileType={updateFileType}
+                            removeFileToadd={removeFileToadd}
+                            FILE_TYPES={FILE_TYPES}
+                            typeLabel={typeLabel}
+                          />
+                          <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
+                            <div className="relative flex-1">
+                              <button className="w-full border border-white/10 border-dashed rounded px-3 py-1.5 text-xs text-muted-foreground hover:bg-white/5 flex items-center justify-center gap-1.5">
+                                <Upload className="h-3 w-3" /> Archivos
+                              </button>
+                              <input type="file" multiple accept=".jar,.zip,.json,.toml,.cfg,.properties" className="absolute inset-0 opacity-0 cursor-pointer"
+                                onChange={(e) => { if (e.target.files) addFiles(Array.from(e.target.files)); e.target.value = ""; }} />
                             </div>
-                          ))}
-                          <div
-                            className="border border-white/10 border-dashed rounded-md p-3 flex items-center justify-center gap-2 text-xs text-muted-foreground cursor-pointer hover:bg-white/5 relative"
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={handleFileDrop}
-                          >
-                            <Upload className="h-3 w-3" /> Añadir más archivos
-                            <input type="file" multiple accept=".jar,.zip,.json,.toml,.cfg" className="absolute inset-0 opacity-0 cursor-pointer"
-                              onChange={(e) => { if (e.target.files) addFiles(Array.from(e.target.files)); }} />
+                            <div className="relative flex-1">
+                              <button className="w-full border border-accent/30 border-dashed rounded px-3 py-1.5 text-xs text-accent/80 hover:bg-accent/5 flex items-center justify-center gap-1.5">
+                                <Folder className="h-3 w-3" /> Carpeta
+                              </button>
+                              <input type="file" className="absolute inset-0 opacity-0 cursor-pointer"
+                                {...{ webkitdirectory: "", multiple: true } as any}
+                                onChange={(e) => { if (e.target.files) addFolder(e.target.files); e.target.value = ""; }} />
+                            </div>
                           </div>
                         </div>
                       ) : (
-                        <div
-                          className="bg-background/50 border border-white/5 border-dashed rounded-md p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-white/5 transition-colors relative"
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={handleFileDrop}
-                        >
-                          <Upload className="h-8 w-8 text-muted-foreground mb-3" />
-                          <p className="text-sm font-medium text-gray-200">Arrastra archivos aquí</p>
-                          <p className="text-xs text-muted-foreground mt-1">.jar, .zip — puedes subir mods individuales o un zip completo</p>
-                          <input
-                            type="file"
-                            multiple
-                            accept=".jar,.zip,.json,.toml,.cfg"
-                            className="absolute inset-0 opacity-0 cursor-pointer"
-                            onChange={(e) => {
-                              if (e.target.files) addFiles(Array.from(e.target.files));
-                            }}
-                          />
+                        <div className="space-y-2">
+                          <div
+                            className="bg-background/50 border border-white/5 border-dashed rounded-md p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-white/5 transition-colors relative"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={handleFileDrop}
+                          >
+                            <Upload className="h-7 w-7 text-muted-foreground mb-2" />
+                            <p className="text-sm font-medium text-gray-200">Arrastra archivos aquí</p>
+                            <p className="text-xs text-muted-foreground mt-1">.jar, .zip, configs individuales</p>
+                            <input type="file" multiple accept=".jar,.zip,.json,.toml,.cfg,.properties" className="absolute inset-0 opacity-0 cursor-pointer"
+                              onChange={(e) => { if (e.target.files) addFiles(Array.from(e.target.files)); }} />
+                          </div>
+                          <div className="relative">
+                            <button className="w-full border border-accent/40 border-dashed rounded-md px-4 py-3 text-sm text-accent hover:bg-accent/10 transition-colors flex items-center justify-center gap-2 font-medium">
+                              <Folder className="h-4 w-4" /> Subir carpeta completa
+                            </button>
+                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer"
+                              {...{ webkitdirectory: "", multiple: true } as any}
+                              onChange={(e) => { if (e.target.files) addFolder(e.target.files); e.target.value = ""; }} />
+                          </div>
+                          <p className="text-xs text-muted-foreground text-center">Selecciona una carpeta y se subirán todos sus archivos manteniendo la estructura</p>
                         </div>
                       )}
                     </div>

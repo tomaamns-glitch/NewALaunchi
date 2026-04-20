@@ -18,6 +18,7 @@ export interface ModFile {
   type: "mod" | "resourcepack" | "shader" | "config" | "bundle";
   sizeMb: number;
   downloadUrl?: string;
+  path?: string;
 }
 
 export interface NewModpackData {
@@ -163,6 +164,7 @@ export async function fetchModpackFiles(repoUrl: string, modpackId: string, toke
 export interface PendingFile {
   file: File;
   type: ModFile["type"];
+  relativePath?: string;
 }
 
 export async function publishUpdate(
@@ -209,9 +211,12 @@ export async function publishUpdate(
 
     const uploadBase = release.upload_url.replace("{?name,label}", "");
 
-    for (const { file, type } of filesToAdd) {
+    for (const { file, type, relativePath } of filesToAdd) {
+      const uploadName = relativePath
+        ? relativePath.replace(/\//g, "__")
+        : file.name;
       const arrayBuffer = await file.arrayBuffer();
-      const uploadRes = await fetch(`${uploadBase}?name=${encodeURIComponent(file.name)}`, {
+      const uploadRes = await fetch(`${uploadBase}?name=${encodeURIComponent(uploadName)}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -226,11 +231,12 @@ export async function publishUpdate(
         type,
         sizeMb: parseFloat((file.size / 1_048_576).toFixed(2)),
         downloadUrl: asset.browser_download_url,
+        ...(relativePath ? { path: relativePath } : {}),
       });
     }
   }
 
-  const remainingFiles = currentFiles.filter((f) => !filesToDelete.includes(f.filename));
+  const remainingFiles = currentFiles.filter((f) => !filesToDelete.includes(f.path ?? f.filename));
   const mergedFiles = [...remainingFiles, ...uploadedFiles];
 
   const newManifest = JSON.stringify({ files: mergedFiles }, null, 2);

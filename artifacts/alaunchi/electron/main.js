@@ -162,6 +162,7 @@ async function extractBundleZip(zipPath, destDir) {
 }
 
 function resolveFileDestPath(file, instanceDir) {
+  if (file.path) return path.join(instanceDir, file.path);
   const isZip = file.filename?.toLowerCase().endsWith(".zip");
   const isBundle = file.type === "bundle" || (isZip && file.type === "mod");
   if (isBundle) return null;
@@ -325,11 +326,12 @@ ipcMain.handle("mc:sync-modpack", async (event, { modpackId, modpack, newFiles }
     oldFiles = JSON.parse(metaRaw).installedManifest || [];
   } catch {}
 
-  const oldMap = new Map(oldFiles.map((f) => [f.filename, f]));
-  const newMap = new Map((newFiles || []).map((f) => [f.filename, f]));
+  const fileKey = (f) => f.path ?? f.filename;
+  const oldMap = new Map(oldFiles.map((f) => [fileKey(f), f]));
+  const newMap = new Map((newFiles || []).map((f) => [fileKey(f), f]));
 
-  for (const [filename, oldFile] of oldMap) {
-    if (!newMap.has(filename)) {
+  for (const [key, oldFile] of oldMap) {
+    if (!newMap.has(key)) {
       const destPath = resolveFileDestPath(oldFile, instanceDir);
       if (destPath) {
         await fs.unlink(destPath).catch(() => {});
@@ -338,7 +340,7 @@ ipcMain.handle("mc:sync-modpack", async (event, { modpackId, modpack, newFiles }
   }
 
   const toDownload = (newFiles || []).filter((f) => {
-    const old = oldMap.get(f.filename);
+    const old = oldMap.get(fileKey(f));
     if (!old) return true;
     return old.sizeMb !== f.sizeMb;
   });
