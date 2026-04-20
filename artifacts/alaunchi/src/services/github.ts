@@ -322,6 +322,53 @@ export async function createModpack(
   );
 }
 
+async function deleteFileContents(
+  owner: string,
+  repo: string,
+  filePath: string,
+  message: string,
+  token: string,
+  sha: string
+): Promise<void> {
+  await ghApiFetch(`/repos/${owner}/${repo}/contents/${filePath}`, token, {
+    method: "DELETE",
+    body: JSON.stringify({ message, sha }),
+  });
+}
+
+export async function deleteModpack(
+  token: string,
+  repoUrl: string,
+  modpackId: string
+): Promise<void> {
+  const parsed = parseRepo(repoUrl);
+  if (!parsed) throw new Error("URL de repositorio no válida.");
+  if (!token) throw new Error("Necesitas un token de GitHub con permiso 'repo' en Ajustes.");
+
+  const { owner, repo } = parsed;
+
+  const modpacksFile = await getFileContents(owner, repo, "modpacks.json", token);
+  if (modpacksFile) {
+    try {
+      const allPacks: any[] = JSON.parse(modpacksFile.content);
+      const updated = allPacks.filter((p: any) => p.id !== modpackId);
+      await putFileContents(
+        owner, repo, "modpacks.json",
+        JSON.stringify(updated, null, 2),
+        `Remove modpack: ${modpackId}`,
+        token,
+        modpacksFile.sha
+      );
+    } catch {}
+  }
+
+  const manifestPath = `modpacks/${modpackId}/manifest.json`;
+  const manifestFile = await getFileContents(owner, repo, manifestPath, token);
+  if (manifestFile) {
+    await deleteFileContents(owner, repo, manifestPath, `Delete manifest for ${modpackId}`, token, manifestFile.sha);
+  }
+}
+
 function guessFileType(filename: string): ModFile["type"] {
   const ext = filename.toLowerCase().split(".").pop();
   if (ext === "jar") return "mod";

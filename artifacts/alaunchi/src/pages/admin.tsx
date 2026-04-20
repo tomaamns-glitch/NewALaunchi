@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash, Upload, Lock, Loader2, Folder, FolderOpen, ChevronRight, ChevronDown, File } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { publishUpdate, fetchModpackFiles, createModpack, ModFile, NewModpackData, PendingFile } from "@/services/github";
+import { publishUpdate, fetchModpackFiles, createModpack, deleteModpack, ModFile, NewModpackData, PendingFile } from "@/services/github";
 
 const LOADERS = ["forge", "fabric", "neoforge", "vanilla"] as const;
 
@@ -210,6 +210,9 @@ export default function Admin() {
   const [newForm, setNewForm] = useState<NewModpackData>(emptyForm());
   const [creating, setCreating] = useState(false);
 
+  const [packToDelete, setPackToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     if (!isAuthenticated) setLocation("/login");
   }, [isAuthenticated, setLocation]);
@@ -271,6 +274,24 @@ export default function Admin() {
       toast.error(e?.message ?? "Error al crear modpack");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDeleteModpack = async () => {
+    if (!packToDelete) return;
+    const token = localStorage.getItem("githubToken") ?? "";
+    const repoUrl = localStorage.getItem("githubRepo") ?? "";
+    setDeleting(true);
+    try {
+      await deleteModpack(token, repoUrl, packToDelete.id);
+      toast.success(`Modpack "${packToDelete.name}" eliminado de GitHub.`);
+      setPackToDelete(null);
+      if (selectedModpack === packToDelete.id) setSelectedModpack("");
+      loadModpacks();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al eliminar el modpack");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -451,6 +472,15 @@ export default function Admin() {
                         <span className="text-xs text-muted-foreground mr-2">
                           {pack.fileCount} archivos · {pack.totalSizeMb} MB
                         </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-gray-500 hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => setPackToDelete({ id: pack.id, name: pack.name })}
+                          title="Eliminar modpack"
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </Card>
@@ -739,6 +769,40 @@ export default function Admin() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!packToDelete} onOpenChange={(open) => { if (!open && !deleting) setPackToDelete(null); }}>
+        <DialogContent className="bg-card border-white/10 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Trash className="h-5 w-5 text-destructive" />
+              Eliminar modpack
+            </DialogTitle>
+            <DialogDescription className="text-gray-400 pt-1">
+              ¿Seguro que quieres eliminar <span className="text-white font-semibold">"{packToDelete?.name}"</span>?
+              <br /><br />
+              Esto borrará la entrada del catálogo y su manifiesto de GitHub. Los archivos del GitHub Release asociado <span className="text-amber-400">no se eliminan</span> automáticamente. La instancia local instalada en los usuarios tampoco se toca.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-2 gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setPackToDelete(null)}
+              disabled={deleting}
+              className="text-gray-400 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleDeleteModpack}
+              disabled={deleting}
+              className="bg-destructive hover:bg-destructive/90 text-white font-bold"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleting ? "Eliminando..." : "Sí, eliminar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
