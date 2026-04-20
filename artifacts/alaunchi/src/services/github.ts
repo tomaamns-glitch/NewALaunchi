@@ -173,7 +173,8 @@ export async function publishUpdate(
   modpackId: string,
   filesToDelete: string[],
   filesToAdd: PendingFile[],
-  newVersion?: string
+  newVersion?: string,
+  onProgress?: (uploaded: number, total: number, currentFile: string) => void
 ): Promise<void> {
   const parsed = parseRepo(repoUrl);
   if (!parsed) throw new Error("URL de repositorio no válida.");
@@ -195,6 +196,7 @@ export async function publishUpdate(
   if (filesToAdd.length > 0) {
     const tagName = `${modpackId}-v${newVersion ?? Date.now()}`;
     let release: any;
+
     try {
       release = await ghApiFetch(`/repos/${owner}/${repo}/releases/tags/${tagName}`, token);
     } catch {
@@ -211,10 +213,30 @@ export async function publishUpdate(
 
     const uploadBase = release.upload_url.replace("{?name,label}", "");
 
+    const existingAssets: Record<string, number> = {};
+    try {
+      const assets = await ghApiFetch(`/repos/${owner}/${repo}/releases/${release.id}/assets?per_page=100`, token);
+      if (Array.isArray(assets)) {
+        for (const a of assets) existingAssets[a.name] = a.id;
+      }
+    } catch {}
+
+    let uploaded = 0;
     for (const { file, type, relativePath } of filesToAdd) {
       const uploadName = relativePath
         ? relativePath.replace(/\//g, "__")
         : file.name;
+
+      onProgress?.(uploaded, filesToAdd.length, file.name);
+
+      if (existingAssets[uploadName]) {
+        try {
+          await ghApiFetch(`/repos/${owner}/${repo}/releases/assets/${existingAssets[uploadName]}`, token, {
+            method: "DELETE",
+          });
+        } catch {}
+      }
+
       const arrayBuffer = await file.arrayBuffer();
       const uploadRes = await fetch(`${uploadBase}?name=${encodeURIComponent(uploadName)}`, {
         method: "POST",
@@ -224,7 +246,10 @@ export async function publishUpdate(
         },
         body: arrayBuffer,
       });
-      if (!uploadRes.ok) throw new Error(`Error subiendo ${file.name}`);
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text().catch(() => "");
+        throw new Error(`Error subiendo ${file.name} (${uploadRes.status}): ${errText.slice(0, 120)}`);
+      }
       const asset = await uploadRes.json();
       uploadedFiles.push({
         filename: file.name,
@@ -233,6 +258,8 @@ export async function publishUpdate(
         downloadUrl: asset.browser_download_url,
         ...(relativePath ? { path: relativePath } : {}),
       });
+      uploaded++;
+      onProgress?.(uploaded, filesToAdd.length, file.name);
     }
   }
 

@@ -205,6 +205,7 @@ export default function Admin() {
   const [selectedToDelete, setSelectedToDelete] = useState<Set<string>>(new Set());
   const [filesToAdd, setFilesToAdd] = useState<PendingFile[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [publishProgress, setPublishProgress] = useState<{ done: number; total: number; file: string } | null>(null);
 
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [newForm, setNewForm] = useState<NewModpackData>(emptyForm());
@@ -245,16 +246,35 @@ export default function Admin() {
     if (!selectedModpack) return;
     const token = localStorage.getItem("githubToken") ?? "";
     const repoUrl = localStorage.getItem("githubRepo") ?? "";
+    if (!token) {
+      toast.error("Necesitas un token de GitHub en Ajustes antes de publicar.");
+      return;
+    }
+    if (!repoUrl) {
+      toast.error("Configura la URL del repositorio en Ajustes.");
+      return;
+    }
     setPublishing(true);
+    setPublishProgress(null);
     try {
-      await publishUpdate(token, repoUrl, selectedModpack, Array.from(selectedToDelete), filesToAdd, newVersion || undefined);
+      await publishUpdate(
+        token,
+        repoUrl,
+        selectedModpack,
+        Array.from(selectedToDelete),
+        filesToAdd,
+        newVersion || undefined,
+        (done, total, file) => setPublishProgress({ done, total, file })
+      );
       toast.success("Actualización publicada correctamente en GitHub");
       setSelectedModpack("");
+      setPublishProgress(null);
       loadModpacks();
     } catch (e: any) {
       toast.error(e?.message ?? "Error al publicar");
     } finally {
       setPublishing(false);
+      setPublishProgress(null);
     }
   };
 
@@ -651,6 +671,20 @@ export default function Admin() {
                   </div>
                 )}
 
+                {publishProgress && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span className="truncate max-w-[70%]">Subiendo: <span className="text-gray-300 font-mono">{publishProgress.file}</span></span>
+                      <span className="shrink-0">{publishProgress.done} / {publishProgress.total}</span>
+                    </div>
+                    <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-accent h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${publishProgress.total > 0 ? (publishProgress.done / publishProgress.total) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="pt-4 flex justify-end">
                   <Button
                     onClick={handlePublish}
@@ -658,7 +692,11 @@ export default function Admin() {
                     className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold px-8"
                   >
                     {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {publishing ? "Publicando..." : "Publicar versión"}
+                    {publishing
+                      ? publishProgress
+                        ? `Subiendo ${publishProgress.done}/${publishProgress.total}...`
+                        : "Preparando..."
+                      : "Publicar versión"}
                   </Button>
                 </div>
               </CardContent>
