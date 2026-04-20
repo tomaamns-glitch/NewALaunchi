@@ -21,49 +21,82 @@ interface ModpackCardProps {
   uuid: string;
 }
 
+const LAUNCH_STAGE_PROGRESS: Record<string, number> = {
+  preparing: 5,
+  downloading_client: 20,
+  downloading_assets: 50,
+  downloading_libraries: 70,
+  installing_loader: 82,
+  launching: 95,
+  launched: 100,
+};
+
+const LAUNCH_STAGE_LABEL: Record<string, string> = {
+  preparing: "Preparando...",
+  downloading_client: "Descargando cliente Minecraft...",
+  downloading_assets: "Descargando assets...",
+  downloading_libraries: "Descargando librerías...",
+  installing_loader: "Instalando modloader...",
+  launching: "Iniciando Minecraft...",
+  launched: "¡Lanzado!",
+};
+
+const INSTALL_STAGE_LABEL: Record<string, string> = {
+  downloading: "Descargando archivos...",
+  updating: "Actualizando archivos...",
+  extracting: "Extrayendo...",
+  done: "Completado",
+};
+
 function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProps) {
   const [status, setStatus] = useState<"idle" | "installing" | "updating" | "launching">("idle");
   const [progress, setProgress] = useState(0);
-  const [launchStage, setLaunchStage] = useState("");
+  const [stageLabel, setStageLabel] = useState("");
   const { updateModpackStatus } = useModpacks();
 
   useEffect(() => {
     if (!api) return;
-    const off = api.onLaunchStatus((data: any) => {
-      if (data.modpackId === pack.id) {
-        const stages: Record<string, string> = {
-          preparing: "Preparando...",
-          downloading_client: "Descargando cliente Minecraft...",
-          downloading_assets: "Descargando assets...",
-          downloading_libraries: "Descargando librerías...",
-          installing_loader: data.msg || "Instalando modloader...",
-          launching: "Iniciando Minecraft...",
-          launched: "¡Lanzado!",
-          error: data.message ? `Error: ${data.message}` : "Error al lanzar",
-        };
-        setLaunchStage(stages[data.stage] || data.stage);
-        if (data.stage === "launched" || data.stage === "error") {
-          setTimeout(() => setStatus("idle"), data.stage === "error" ? 6000 : 3000);
-        }
+    const offLaunch = api.onLaunchStatus((data: any) => {
+      if (data.modpackId !== pack.id) return;
+      const label = data.stage === "installing_loader" && data.msg
+        ? data.msg
+        : (LAUNCH_STAGE_LABEL[data.stage] ?? data.stage);
+      setStageLabel(label);
+      setProgress(LAUNCH_STAGE_PROGRESS[data.stage] ?? progress);
+      if (data.stage === "launched" || data.stage === "error") {
+        if (data.stage === "error") setStageLabel(`Error: ${data.message || "fallo al lanzar"}`);
+        setTimeout(() => setStatus("idle"), data.stage === "error" ? 6000 : 2500);
       }
     });
-    return off;
+    const offInstall = api.onInstallProgress((data: any) => {
+      if (data.modpackId !== pack.id) return;
+      if (data.stage === "done") {
+        setProgress(100);
+        setStageLabel("Completado");
+      } else {
+        setProgress(data.progress ?? 0);
+        setStageLabel(INSTALL_STAGE_LABEL[data.stage] ?? "Descargando...");
+      }
+    });
+    return () => { offLaunch(); offInstall(); };
   }, [pack.id]);
 
   const handleInstall = async () => {
     setStatus("installing");
     setProgress(0);
+    setStageLabel("Obteniendo información...");
     try {
       const repoUrl = localStorage.getItem("githubRepo") ?? "";
       const token = localStorage.getItem("githubToken") ?? "";
       const files = await fetchModpackFiles(repoUrl, pack.id, token || undefined);
-      await installModpack(pack.id, files as any, (p) => setProgress(p));
+      await installModpack(pack.id, files as any, undefined, { version: pack.version, name: pack.name, minecraftVersion: pack.minecraftVersion, loaderType: pack.loaderType });
       updateModpackStatus(pack.id, { installed: true, installedVersion: pack.version });
       toast.success(`${pack.name} instalado correctamente.`);
     } catch (e: any) {
       toast.error(e?.message || "Error al instalar.");
     } finally {
       setStatus("idle");
+      setStageLabel("");
     }
   };
 
@@ -72,6 +105,7 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
       if (pack.updateAvailable) {
         setStatus("updating");
         setProgress(0);
+        setStageLabel("Obteniendo información...");
         const repoUrl = localStorage.getItem("githubRepo") ?? "";
         const token = localStorage.getItem("githubToken") ?? "";
         const newFiles = await fetchModpackFiles(repoUrl, pack.id, token || undefined);
@@ -81,7 +115,8 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
         toast.success(n === 0 ? `${pack.name} ya está al día.` : `${pack.name} actualizado (${n} archivo${n !== 1 ? "s" : ""} descargado${n !== 1 ? "s" : ""}).`);
       }
       setStatus("launching");
-      setLaunchStage("Preparando...");
+      setProgress(5);
+      setStageLabel("Preparando...");
       await launchMinecraft({
         modpackId: pack.id,
         mcVersion: pack.minecraftVersion,
@@ -93,9 +128,8 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
       toast.success(`¡${pack.name} iniciado!`);
     } catch (e: any) {
       toast.error(e?.message || "Error al iniciar.");
-    } finally {
       setStatus("idle");
-      setLaunchStage("");
+      setStageLabel("");
     }
   };
 
@@ -143,21 +177,16 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 h-10">{pack.description}</p>
 
         <div className="mt-auto pt-2">
-          {(status === "installing" || status === "updating") ? (
+          {status !== "idle" ? (
             <div className="space-y-2">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{status === "updating" ? "Actualizando..." : "Instalando..."}</span>
-                <span>{Math.round(progress)}%</span>
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                  <span className="truncate">{stageLabel}</span>
+                </div>
+                <span className="shrink-0 tabular-nums">{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} className="h-2" />
-            </div>
-          ) : status === "launching" ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>{launchStage}</span>
-              </div>
-              <Progress value={undefined} className="h-2 animate-pulse" />
             </div>
           ) : (
             <Button
