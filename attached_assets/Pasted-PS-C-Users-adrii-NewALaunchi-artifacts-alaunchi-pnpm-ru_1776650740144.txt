@@ -1,0 +1,68 @@
+PS C:\Users\adrii\NewALaunchi\artifacts\alaunchi> pnpm run electron:dev
+
+> @workspace/alaunchi@1.0.0 electron:dev C:\Users\adrii\NewALaunchi\artifacts\alaunchi
+> concurrently -k --names "VITE,ELECTRON" -c "cyan,yellow" "vite --config vite.electron.config.ts" "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron ."
+
+[VITE] 
+[VITE]   VITE v7.3.1  ready in 619 ms
+[VITE]
+[VITE]   ➜  Local:   http://localhost:5173/
+[VITE]   ➜  Network: http://192.168.1.2:5173/
+[ELECTRON] 
+[ELECTRON] [12012:0420/040341.726:ERROR:CONSOLE(1)] "Request Autofill.enable failed. {"code":-32601,"message":"'Autofill.enable' wasn't found"}", source: devtools://devtools/bundled/core/protocol_client/protocol_client.js (1)
+[ELECTRON] [12012:0420/040341.726:ERROR:CONSOLE(1)] "Request Autofill.setAddresses failed. {"code":-32601,"message":"'Autofill.setAddresses' wasn't found"}", source: devtools://devtools/bundled/core/protocol_client/protocol_client.js (1)
+[ELECTRON] [NeoForge] Usando versión 21.1.227
+[ELECTRON] [Installer stdout] d/scores/criteria/ObjectiveCriteria$RenderType.class
+[ELECTRON]   net/minecraft/world/scores/criteria/ObjectiveCriteria.class
+[ELECTRON]   net/minecraft/world/scores/criteria/package-info.class
+[ELECTRON]   net/minecraft/world/scores/package-info.class
+[ELECTRON]   net/minecraft/world/ticks/
+[ELECTRON]   net/minecraft/world/ticks/BlackholeTickAccess$1.class
+[ELECTRON]   net/minecraft/world/ticks/BlackholeTickAccess$2.class
+[ELECTRON]   net/minecraft/world/ticks/BlackholeTickAccess.class
+[ELECTRON]   net/minecraft/world/ticks/ContainerSingleItem$BlockContainerSingleItem.class
+[ELECTRON]   net/minecraft/world/ticks/ContainerSingleItem.class
+[ELECTRON]   net/minecraft/world/ticks/LevelChunkTicks.class
+[ELECTRON]   net/minecraft/world/ticks/LevelTickAccess.class
+[ELECTRON]   net/minecraft/world/ticks/LevelTicks$PosAndContainerConsumer.class
+[ELECTRON]   net/minecraft/world/ticks/LevelTicks.class
+[ELECTRON]   net/minecraft/world/ticks/ProtoChunkTicks.class
+[ELECTRON]   net/minecraft/world/ticks/SavedTick$1.class
+[ELECTRON]   net/minecraft/world/ticks/SavedTick.class
+[ELECTRON]   net/minecraft/world/ticks/ScheduledTick$1.class
+[ELECTRON]   net/minecraft/world/ticks/ScheduledTick.class
+[ELECTRON]   net/minecraft/world/ticks/SerializableTickContainer.class
+[ELECTRON]   net/minecraft/world/ticks/TickAccess.class
+[ELECTRON]   net/minecraft/world/ticks/TickContainerAccess.class
+[ELECTRON]   net/minecraft/world/ticks/TickPriority.class
+[ELECTRON]   net/minecraft/world/ticks/WorldGenTickAccess.class
+[ELECTRON]   net/minecraft/world/ticks/package-info.class
+[ELECTRON] ===============================================================================
+[ELECTRON] Processor: net.neoforged.installertools:binarypatcher
+[ELECTRON]   MainClass: net.neoforged.binarypatcher.ConsoleTool
+[ELECTRON]   Classpath:
+[ELECTRON]     C:\Users\adrii\AppData\Roaming\.minecraft\libraries\net\neoforged\installertools\binarypatcher\2.1.2\binarypatcher-2.1.2-fatjar.jar
+[ELECTRON]     C:\Users\adrii\AppData\Roaming\.minecraft\libraries\net\neoforged\installertools\binarypatcher\2.1.2\binarypatcher-2.1.2-fatjar.jar
+[ELECTRON]   Args: --clean, C:\Users\adrii\AppData\Roaming\.minecraft\libraries\net\minecraft\client\1.21.1-20240808.144430\client-1.21.1-20240808.144430-srg.jar, --output, C:\Users\adrii\AppData\Roaming\.minecraft\libraries\net\neoforged\neoforge\21.1.227\neoforge-21.1.227-client.jar, --apply, C:\Users\adrii\AppData\Local\Temp\neoforge_installer2003860707923783425\data\client.lzma
+[ELECTRON] Applying:
+[ELECTRON]   Clean:     C:\Users\adrii\AppData\Roaming\.minecraft\libraries\net\minecraft\client\1.21.1-20240808.144430\client-1.21.1-20240808.144430-srg.jar
+[ELECTRON]   Output:    C:\Users\adrii\AppData\Roaming\.minecraft\libraries\net\neoforged\neoforge\21.1.227\neoforge-21.1.227-client.jar
+[ELECTRON]   KeepData:  false
+[ELECTRON]   Unpatched: false
+[ELECTRON]   Pack200:   false
+[ELECTRON]   Legacy:    false
+[ELECTRON] Loading patches file: C:\Users\adrii\AppData\Local\Temp\neoforge_installer2003860707923783425\data\client.lzma
+[ELECTRON] Processor: net.neoforged.installertools:binarypatcher: Loading patch files
+[ELECTRON] Processor: net.neoforged.installertools:binarypatcher: Patching input
+[ELECTRON] Processor: net.neoforged.installertools:binarypatcher: Adding new files
+[ELECTRON] Injecting profile
+[ELECTRON] Successfully installed client into launcher.
+[ELECTRON] You can delete this installer file now if you wish
+[ELECTRON]
+[ELECTRON] [NeoForge] Error: Installer de neoforge falló:
+[ELECTRON] No se encontró el version.json resultante
+[ELECTRON] Error occurred in handler for 'mc:launch': Error: No se pudo instalar NeoForge para MC 1.21.1: Installer de neoforge falló:
+[ELECTRON] No se encontró el version.json resultante
+[ELECTRON]     at C:\Users\adrii\NewALaunchi\artifacts\alaunchi\electron\main.js:375:13
+[ELECTRON]     at async WebContents.<anonymous> (node:electron/js2c/browser_init:2:87428)
+

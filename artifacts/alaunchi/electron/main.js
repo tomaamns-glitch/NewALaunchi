@@ -559,18 +559,20 @@ async function runForgeInstaller(loaderType, loaderVersion, mcVersion, sendStatu
   async function findVersionJsonIn(baseDir) {
     const versionsDir = path.join(baseDir, "versions");
     const dirs = await fs.readdir(versionsDir).catch(() => []);
+    console.log("[Installer] Versions in", versionsDir, ":", dirs);
     for (const dir of dirs) {
-      if (!dir.toLowerCase().includes(loaderType) && !dir.toLowerCase().includes("forge")) continue;
+      if (!dir.toLowerCase().includes(loaderVersion.toLowerCase())) continue;
       const candidate = path.join(versionsDir, dir, `${dir}.json`);
       if (fsSync.existsSync(candidate)) return { jsonPath: candidate, libsDir: path.join(baseDir, "libraries") };
     }
     return null;
   }
 
-  if (fsSync.existsSync(mcVersionJsonPath)) {
-    console.log("[Installer] Using existing profile from:", mcVersionJsonPath);
-    const profile = JSON.parse(await fs.readFile(mcVersionJsonPath, "utf8"));
-    return { profile, installLibsDir: mcLibrariesDir };
+  const preCheckFound = await findVersionJsonIn(mcDir);
+  if (preCheckFound) {
+    console.log("[Installer] Using existing profile from:", preCheckFound.jsonPath);
+    const profile = JSON.parse(await fs.readFile(preCheckFound.jsonPath, "utf8"));
+    return { profile, installLibsDir: preCheckFound.libsDir };
   }
 
   const installerPath = path.join(CACHE_DIR, installerFilename);
@@ -597,22 +599,16 @@ async function runForgeInstaller(loaderType, loaderVersion, mcVersion, sendStatu
 
   await fs.unlink(installerPath).catch(() => {});
 
-  if (fsSync.existsSync(mcVersionJsonPath)) {
-    console.log("[Installer] Éxito, versión JSON en:", mcVersionJsonPath);
-    const profile = JSON.parse(await fs.readFile(mcVersionJsonPath, "utf8"));
-    return { profile, installLibsDir: mcLibrariesDir };
-  }
-
   const found = await findVersionJsonIn(mcDir);
   if (found) {
-    console.log("[Installer] Éxito (encontrado en búsqueda), versión JSON en:", found.jsonPath);
+    console.log("[Installer] Éxito, versión JSON en:", found.jsonPath);
     const profile = JSON.parse(await fs.readFile(found.jsonPath, "utf8"));
     return { profile, installLibsDir: found.libsDir };
   }
 
   const errMsg = installerError
     ? `${installerError.stderr?.slice(-1500) || installerError.stdout?.slice(-1500) || installerError.message}`
-    : "No se encontró el version.json resultante";
+    : "El instalador dijo éxito pero no se encontró ningún version.json con '${loaderVersion}' en %APPDATA%\\.minecraft\\versions\\";
   throw new Error(`Installer de ${loaderType} falló:\n${errMsg}`);
 }
 
