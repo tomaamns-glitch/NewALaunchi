@@ -660,6 +660,9 @@ async function resolveModloaderLibrary(lib, librariesDir, mavenBases, installLib
 }
 
 function buildLaunchArgs(versionJson, opts, loaderProfile = null) {
+  const currentPlatformName = process.platform === "win32" ? "windows"
+    : process.platform === "darwin" ? "osx" : "linux";
+
   const argMap = {
     "${auth_player_name}": opts.username,
     "${version_name}": opts.version,
@@ -679,6 +682,8 @@ function buildLaunchArgs(versionJson, opts, loaderProfile = null) {
     "${launcher_name}": "ALaunchi",
     "${launcher_version}": "1.0",
     "${classpath}": opts.classpath,
+    "${clientid}": "",
+    "${auth_xuid}": "",
   };
 
   function resolveArg(arg) {
@@ -689,12 +694,25 @@ function buildLaunchArgs(versionJson, opts, loaderProfile = null) {
     return resolved;
   }
 
+  function evaluateRules(rules) {
+    for (const rule of rules || []) {
+      if (rule.features) return false;
+      if (rule.os) {
+        const osMatch = !rule.os.name || rule.os.name === currentPlatformName;
+        if (rule.action === "allow" && !osMatch) return false;
+        if (rule.action === "disallow" && osMatch) return false;
+      }
+    }
+    return true;
+  }
+
   function expandArgs(rawList) {
     const out = [];
     for (const entry of rawList) {
       if (typeof entry === "string") {
         out.push(resolveArg(entry));
       } else if (entry && typeof entry === "object" && entry.value) {
+        if (entry.rules && !evaluateRules(entry.rules)) continue;
         const vals = Array.isArray(entry.value) ? entry.value : [entry.value];
         for (const v of vals) out.push(resolveArg(v));
       }
