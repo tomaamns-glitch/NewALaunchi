@@ -1,0 +1,98 @@
+sergii@MacBook-Pro-de-Sergio alaunchi % cd /Users/sergii/NewALaunchi
+pnpm add -w lightningcss-darwin-arm64
+cd artifacts/alaunchi
+pnpm run electron:build:mac
+ WARN  11 deprecated subdependencies found: @npmcli/move-file@2.0.1, are-we-there-yet@3.0.1, boolean@3.2.0, gauge@4.0.4, glob@10.5.0, glob@7.2.3, glob@8.1.0, inflight@1.0.6, npmlog@6.0.2, rimraf@3.0.2, tar@6.2.1
+Progress: resolved 792, reused 0, downloaded 0, added 0, done
+ WARN  Issues with peer dependencies found
+artifacts/alaunchi
+└─┬ electron-builder 25.1.8
+  ├─┬ dmg-builder 25.1.8
+  │ └─┬ app-builder-lib 25.1.8
+  │   └── ✕ missing peer electron-builder-squirrel-windows@25.1.8
+  └─┬ app-builder-lib 25.1.8
+    └── ✕ missing peer electron-builder-squirrel-windows@25.1.8
+Peer dependencies that should be installed:
+  electron-builder-squirrel-windows@25.1.8
+
+dependencies:
++ lightningcss-darwin-arm64 ^1.32.0
+
+Packages: +1
++
+Done in 1.5s using pnpm v10.33.0
+
+> @workspace/alaunchi@1.0.0 electron:build:mac /Users/sergii/NewALaunchi/artifacts/alaunchi
+> vite build --config vite.electron.config.ts && electron-builder --mac
+
+vite v7.3.2 building client environment for production...
+(node:92197) ExperimentalWarning: WASI is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+transforming (7) ../../node_modules/.pnpm/wouter@3.9.0_react@19.1.0/node_modules/wouter/src/index.js(node:92197) ExperimentalWarning: WASI is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/avatar.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/progress.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 2238 modules transformed.
+dist/index.html                   0.73 kB │ gzip:   0.41 kB
+dist/assets/index-CXGlI3nK.css  115.61 kB │ gzip:  18.13 kB
+dist/assets/index-BjHuoutz.js   555.15 kB │ gzip: 176.86 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.04s
+  • electron-builder  version=25.1.8 os=25.3.0
+  • loaded configuration  file=package.json ("build" field)
+  • author is missed in the package.json  appPackageFile=/Users/sergii/NewALaunchi/artifacts/alaunchi/package.json
+  • writing effective config  file=release/builder-effective-config.yaml
+  • executing @electron/rebuild  electronVersion=34.5.8 arch=x64 buildFromSource=false appDir=./
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=darwin arch=x64 electron=34.5.8 appOutDir=release/mac
+  • downloading     url=https://github.com/electron/electron/releases/download/v34.5.8/electron-v34.5.8-darwin-x64.zip size=105 MB parts=8
+  • downloaded      url=https://github.com/electron/electron/releases/download/v34.5.8/electron-v34.5.8-darwin-x64.zip duration=11.345s
+  ⨯ image: unknown format
+github.com/develar/go-fs-util.CloseAndCheckError
+	/Users/runner/go/pkg/mod/github.com/develar/go-fs-util@v0.0.0-20190620175131-69a2d4542206/fs.go:117
+github.com/develar/app-builder/pkg/icons.DecodeImageAndClose
+	/Users/runner/work/app-builder/app-builder/pkg/icons/image-util.go:90
+github.com/develar/app-builder/pkg/icons.LoadImage
+	/Users/runner/work/app-builder/app-builder/pkg/icons/image-util.go:61
+github.com/develar/app-builder/pkg/icons.loadImage
+	/Users/runner/work/app-builder/app-builder/pkg/icons/icon-converter.go:342
+github.com/develar/app-builder/pkg/icons.configureInputInfoFromSingleFile
+	/Users/runner/work/app-builder/app-builder/pkg/icons/icon-converter.go:324
+github.com/develar/app-builder/pkg/icons.doConvertIcon
+	/Users/runner/work/app-builder/app-builder/pkg/icons/icon-converter.go:249
+github.com/develar/app-builder/pkg/icons.ConvertIcon
+	/Users/runner/work/app-builder/app-builder/pkg/icons/icon-converter.go:56
+github.com/develar/app-builder/pkg/icons.ConfigureCommand.func1
+	/Users/runner/work/app-builder/app-builder/pkg/icons/icon-converter.go:33
+github.com/alecthomas/kingpin.(*actionMixin).applyActions
+	/Users/runner/go/pkg/mod/github.com/alecthomas/kingpin@v2.2.6+incompatible/actions.go:28
+github.com/alecthomas/kingpin.(*Application).applyActions
+	/Users/runner/go/pkg/mod/github.com/alecthomas/kingpin@v2.2.6+incompatible/app.go:557
+github.com/alecthomas/kingpin.(*Application).execute
+	/Users/runner/go/pkg/mod/github.com/alecthomas/kingpin@v2.2.6+incompatible/app.go:390
+github.com/alecthomas/kingpin.(*Application).Parse
+	/Users/runner/go/pkg/mod/github.com/alecthomas/kingpin@v2.2.6+incompatible/app.go:222
+main.main
+	/Users/runner/work/app-builder/app-builder/main.go:90
+runtime.main
+	/Users/runner/hostedtoolcache/go/1.21.13/arm64/src/runtime/proc.go:267
+runtime.goexit
+	/Users/runner/hostedtoolcache/go/1.21.13/arm64/src/runtime/asm_arm64.s:1197  
+  ⨯ /Users/sergii/NewALaunchi/node_modules/.pnpm/app-builder-bin@5.0.0-alpha.10/node_modules/app-builder-bin/mac/app-builder_arm64 process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1  failedTask=build stackTrace=Error: /Users/sergii/NewALaunchi/node_modules/.pnpm/app-builder-bin@5.0.0-alpha.10/node_modules/app-builder-bin/mac/app-builder_arm64 process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+Exit code:
+1
+    at ChildProcess.<anonymous> (/Users/sergii/NewALaunchi/node_modules/.pnpm/builder-util@25.1.7/node_modules/builder-util/src/util.ts:255:14)
+    at Object.onceWrapper (node:events:631:26)
+    at ChildProcess.emit (node:events:509:28)
+    at maybeClose (node:internal/child_process:1124:16)
+    at Process.ChildProcess._handle.onexit (node:internal/child_process:306:5)
+ ELIFECYCLE  Command failed with exit code 1.
