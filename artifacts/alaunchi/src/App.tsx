@@ -1,4 +1,5 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
+import { useHashLocation } from "wouter/use-hash-location";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +10,8 @@ import Admin from "@/pages/admin";
 import Settings from "@/pages/settings";
 
 const queryClient = new QueryClient();
+
+const isElectron = typeof navigator !== "undefined" && navigator.userAgent.includes("Electron");
 
 function Router() {
   return (
@@ -26,9 +29,15 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        {isElectron ? (
+          <WouterRouter hook={useHashLocation}>
+            <Router />
+          </WouterRouter>
+        ) : (
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        )}
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
