@@ -225,7 +225,8 @@ export default function Admin() {
   useEffect(() => {
     if (!selectedModpack) { setFiles([]); return; }
     const repoUrl = localStorage.getItem("githubRepo") ?? "";
-    fetchModpackFiles(repoUrl, selectedModpack).then(setFiles);
+    const token = localStorage.getItem("githubToken") ?? "";
+    fetchModpackFiles(repoUrl, selectedModpack, token || undefined).then(setFiles);
     setSelectedToDelete(new Set());
     setFilesToAdd([] as PendingFile[]);
     const pack = modpacks.find((p) => p.id === selectedModpack);

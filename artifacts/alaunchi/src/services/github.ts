@@ -269,25 +269,33 @@ export async function publishUpdate(
   const newManifest = JSON.stringify({ files: mergedFiles }, null, 2);
   await putFileContents(owner, repo, manifestPath, newManifest, `Update manifest for ${modpackId}`, token, existing?.sha);
 
-  if (newVersion) {
-    const modpacksFile = await getFileContents(owner, repo, "modpacks.json", token);
-    if (modpacksFile) {
-      try {
-        const allPacks: any[] = JSON.parse(modpacksFile.content);
-        const updated = allPacks.map((p: any) =>
-          p.id === modpackId ? { ...p, version: newVersion } : p
-        );
-        await putFileContents(
-          owner,
-          repo,
-          "modpacks.json",
-          JSON.stringify(updated, null, 2),
-          `Bump ${modpackId} to v${newVersion}`,
-          token,
-          modpacksFile.sha
-        );
-      } catch {}
-    }
+  const totalSizeMb = parseFloat(mergedFiles.reduce((sum, f) => sum + (f.sizeMb ?? 0), 0).toFixed(2));
+  const fileCount = mergedFiles.length;
+
+  const modpacksFile = await getFileContents(owner, repo, "modpacks.json", token);
+  if (modpacksFile) {
+    try {
+      const allPacks: any[] = JSON.parse(modpacksFile.content);
+      const updated = allPacks.map((p: any) =>
+        p.id === modpackId
+          ? {
+              ...p,
+              fileCount,
+              totalSizeMb,
+              ...(newVersion ? { version: newVersion } : {}),
+            }
+          : p
+      );
+      await putFileContents(
+        owner,
+        repo,
+        "modpacks.json",
+        JSON.stringify(updated, null, 2),
+        `Update ${modpackId}: ${fileCount} files${newVersion ? ` v${newVersion}` : ""}`,
+        token,
+        modpacksFile.sha
+      );
+    } catch {}
   }
 }
 
