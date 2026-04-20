@@ -28,10 +28,10 @@ title = "Competitive PVP arena Minecraft scene"
 id = "OUVLf3sC-hbEYIedFteWa"
 uri = "file://artifacts/alaunchi/public/banners/legacy-afterland.png"
 type = "image"
-title = "legacy afterland pixel art banner v2"
+title = "legacy afterland banner with title"
 
 [[outputs]]
 id = "gXb9HXHdt18L13KosgBF1"
 uri = "file://artifacts/alaunchi/public/banners/legacy-afterland.png"
 type = "image"
-title = "Banner v2 - The Legacy Afterland"
+title = "Banner Final - The Legacy Afterland"
