@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "TuLFzxJH2_TU_DnOXLXsC"
@@ -24,3 +23,15 @@ id = "X0ngahxckStwp7Z--cjks"
 uri = "file://artifacts/alaunchi/public/pvp-arena.png"
 type = "image"
 title = "Competitive PVP arena Minecraft scene"
+
+[[generated]]
+id = "OUVLf3sC-hbEYIedFteWa"
+uri = "file://artifacts/alaunchi/public/banners/legacy-afterland.png"
+type = "image"
+title = "legacy afterland pixel art banner"
+
+[[outputs]]
+id = "gXb9HXHdt18L13KosgBF1"
+uri = "file://artifacts/alaunchi/public/banners/legacy-afterland.png"
+type = "image"
+title = "Banner - The Legacy Afterland"
