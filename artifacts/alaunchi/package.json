@@ -21,7 +21,7 @@
     "copyright": "Copyright © 2024 ALaunchi",
     "directories": {
       "output": "release",
-      "buildResources": "public"
+      "buildResources": "build-resources"
     },
     "files": [
       "dist/**/*",
