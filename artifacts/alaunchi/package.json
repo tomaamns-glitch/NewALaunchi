@@ -29,16 +29,38 @@
       "public/logo.png"
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "public/logo.png"
     },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
       "icon": "public/logo.png",
       "category": "public.app-category.games"
     },
     "linux": {
-      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "public/logo.png",
       "category": "Game"
     },
@@ -120,6 +142,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "adm-zip": "^0.5.17",
     "zustand": "^5.0.12"
   }
 }

@@ -15,7 +15,7 @@ export interface Modpack {
 
 export interface ModFile {
   filename: string;
-  type: "mod" | "resourcepack" | "shader" | "config";
+  type: "mod" | "resourcepack" | "shader" | "config" | "bundle";
   sizeMb: number;
   downloadUrl?: string;
 }
@@ -317,7 +317,7 @@ function guessFileType(filename: string): ModFile["type"] {
   if (ext === "zip") {
     if (filename.toLowerCase().includes("shader") || filename.toLowerCase().includes("shad")) return "shader";
     if (filename.toLowerCase().includes("resource") || filename.toLowerCase().includes("texture")) return "resourcepack";
-    return "mod";
+    return "bundle";
   }
   return "config";
 }

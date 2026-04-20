@@ -8,6 +8,7 @@ const { spawn, exec } = require("child_process");
 const { promisify } = require("util");
 const crypto = require("crypto");
 const os = require("os");
+const AdmZip = require("adm-zip");
 
 const execAsync = promisify(exec);
 
@@ -149,6 +150,17 @@ ipcMain.handle("mc:get-installed-modpacks", async () => {
   }
 });
 
+async function extractBundleZip(zipPath, destDir) {
+  const zip = new AdmZip(zipPath);
+  const entries = zip.getEntries();
+  for (const entry of entries) {
+    if (entry.isDirectory) continue;
+    const entryPath = path.join(destDir, entry.entryName);
+    await fs.mkdir(path.dirname(entryPath), { recursive: true });
+    await fs.writeFile(entryPath, entry.getData());
+  }
+}
+
 ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files }) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   const instanceDir = path.join(INSTANCES_DIR, modpackId);
@@ -166,15 +178,27 @@ ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files }
   for (let i = 0; i < (files || []).length; i++) {
     const file = files[i];
     if (!file.downloadUrl) continue;
-    let destDir = instanceDir;
-    if (file.type === "mod") destDir = modsDir;
-    else if (file.type === "resourcepack") destDir = resourcepacksDir;
-    else if (file.type === "shader") destDir = shaderpacks;
-    const destPath = path.join(destDir, file.filename);
-    await downloadFile(file.downloadUrl, destPath, (p) => {
-      const overall = Math.round(((i + p / 100) / files.length) * 100);
-      win?.webContents.send("install-progress", { modpackId, stage: "downloading", progress: overall });
-    });
+    const isZip = file.filename?.toLowerCase().endsWith(".zip");
+    const isBundle = file.type === "bundle" || (isZip && file.type === "mod");
+    if (isBundle) {
+      const tmpZip = path.join(CACHE_DIR, `bundle-${modpackId}-${Date.now()}.zip`);
+      await downloadFile(file.downloadUrl, tmpZip, (p) => {
+        const overall = Math.round(((i + p / 100) / files.length) * 100);
+        win?.webContents.send("install-progress", { modpackId, stage: "downloading", progress: overall });
+      });
+      await extractBundleZip(tmpZip, instanceDir);
+      await fs.unlink(tmpZip).catch(() => {});
+    } else {
+      let destDir = instanceDir;
+      if (file.type === "mod") destDir = modsDir;
+      else if (file.type === "resourcepack") destDir = resourcepacksDir;
+      else if (file.type === "shader") destDir = shaderpacks;
+      const destPath = path.join(destDir, file.filename);
+      await downloadFile(file.downloadUrl, destPath, (p) => {
+        const overall = Math.round(((i + p / 100) / files.length) * 100);
+        win?.webContents.send("install-progress", { modpackId, stage: "downloading", progress: overall });
+      });
+    }
   }
 
   const meta = {
@@ -214,12 +238,21 @@ ipcMain.handle("mc:update-modpack", async (event, { modpackId, filesToDelete, fi
   for (let i = 0; i < (filesToAdd || []).length; i++) {
     const file = filesToAdd[i];
     if (!file.downloadUrl) continue;
-    let destDir = instanceDir;
-    if (file.type === "mod") destDir = path.join(instanceDir, "mods");
-    else if (file.type === "resourcepack") destDir = path.join(instanceDir, "resourcepacks");
-    else if (file.type === "shader") destDir = path.join(instanceDir, "shaderpacks");
-    const destPath = path.join(destDir, file.filename);
-    await downloadFile(file.downloadUrl, destPath, () => {});
+    const isZipFile = file.filename?.toLowerCase().endsWith(".zip");
+    const isBundleFile = file.type === "bundle" || (isZipFile && file.type === "mod");
+    if (isBundleFile) {
+      const tmpZip = path.join(CACHE_DIR, `bundle-${modpackId}-${Date.now()}.zip`);
+      await downloadFile(file.downloadUrl, tmpZip, () => {});
+      await extractBundleZip(tmpZip, instanceDir);
+      await fs.unlink(tmpZip).catch(() => {});
+    } else {
+      let destDir = instanceDir;
+      if (file.type === "mod") destDir = path.join(instanceDir, "mods");
+      else if (file.type === "resourcepack") destDir = path.join(instanceDir, "resourcepacks");
+      else if (file.type === "shader") destDir = path.join(instanceDir, "shaderpacks");
+      const destPath = path.join(destDir, file.filename);
+      await downloadFile(file.downloadUrl, destPath, () => {});
+    }
   }
 
   win?.webContents.send("install-progress", { modpackId, stage: "done", progress: 100 });
