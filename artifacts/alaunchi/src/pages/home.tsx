@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Settings, LogOut, Download, Play, RefreshCw, Loader2, AlertTriangle, Coffee } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { installModpack, launchMinecraft } from "@/services/electron";
+import { installModpack, syncModpack, launchMinecraft } from "@/services/electron";
 import { toast } from "sonner";
 import { Modpack, fetchModpackFiles } from "@/services/github";
 import { Progress } from "@/components/ui/progress";
@@ -75,9 +75,10 @@ function ModpackCard({ pack, index, authToken, username, uuid }: ModpackCardProp
         const repoUrl = localStorage.getItem("githubRepo") ?? "";
         const token = localStorage.getItem("githubToken") ?? "";
         const newFiles = await fetchModpackFiles(repoUrl, pack.id, token || undefined);
-        await installModpack(pack.id, newFiles as any, (p) => setProgress(p));
+        const result = await syncModpack(pack.id, newFiles as any, { version: pack.version }, (p) => setProgress(p));
         updateModpackStatus(pack.id, { updateAvailable: false, installedVersion: pack.version });
-        toast.success(`${pack.name} actualizado.`);
+        const n = result?.downloaded ?? 0;
+        toast.success(n === 0 ? `${pack.name} ya está al día.` : `${pack.name} actualizado (${n} archivo${n !== 1 ? "s" : ""} descargado${n !== 1 ? "s" : ""}).`);
       }
       setStatus("launching");
       setLaunchStage("Preparando...");

@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash, Upload, Lock, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { publishUpdate, fetchModpackFiles, createModpack, ModFile, NewModpackData } from "@/services/github";
+import { publishUpdate, fetchModpackFiles, createModpack, ModFile, NewModpackData, PendingFile } from "@/services/github";
 
 const LOADERS = ["forge", "fabric", "neoforge", "vanilla"] as const;
 
@@ -45,7 +45,7 @@ export default function Admin() {
   const [newVersion, setNewVersion] = useState("");
   const [files, setFiles] = useState<ModFile[]>([]);
   const [selectedToDelete, setSelectedToDelete] = useState<Set<string>>(new Set());
-  const [filesToAdd, setFilesToAdd] = useState<File[]>([]);
+  const [filesToAdd, setFilesToAdd] = useState<PendingFile[]>([]);
   const [publishing, setPublishing] = useState(false);
 
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -65,7 +65,7 @@ export default function Admin() {
     const repoUrl = localStorage.getItem("githubRepo") ?? "";
     fetchModpackFiles(repoUrl, selectedModpack).then(setFiles);
     setSelectedToDelete(new Set());
-    setFilesToAdd([]);
+    setFilesToAdd([] as PendingFile[]);
     const pack = modpacks.find((p) => p.id === selectedModpack);
     if (pack) {
       const [major, minor, patch] = pack.version.split(".").map(Number);
@@ -122,23 +122,43 @@ export default function Admin() {
     setSelectedToDelete(next);
   };
 
+  const FILE_TYPES: ModFile["type"][] = ["mod", "bundle", "resourcepack", "shader", "config"];
+
+  const typeLabel: Record<ModFile["type"], string> = {
+    mod: "Mod (.jar)",
+    bundle: "Bundle (zip completo)",
+    resourcepack: "Resource Pack",
+    shader: "Shader",
+    config: "Config",
+  };
+
+  const guessType = (filename: string): ModFile["type"] => {
+    const low = filename.toLowerCase();
+    const ext = low.split(".").pop();
+    if (ext === "jar") return "mod";
+    if (ext === "zip") {
+      if (low.includes("shader") || low.includes("shad")) return "shader";
+      if (low.includes("resource") || low.includes("texture")) return "resourcepack";
+      return "bundle";
+    }
+    return "config";
+  };
+
   const isBundleFile = (f: ModFile) =>
     f.type === "bundle" || (f.type === "mod" && f.filename.toLowerCase().endsWith(".zip"));
 
-  const currentBundles = files.filter(isBundleFile);
-  const hasBundle = currentBundles.length > 0;
-
   const addFiles = (newFiles: File[]) => {
-    const filtered = newFiles.filter((f) => f.name.endsWith(".jar") || f.name.endsWith(".zip"));
-    setFilesToAdd((prev) => [...prev, ...filtered]);
-    const hasNewZip = filtered.some((f) => f.name.endsWith(".zip"));
-    if (hasNewZip && hasBundle) {
-      setSelectedToDelete((prev) => {
-        const next = new Set(prev);
-        currentBundles.forEach((b) => next.add(b.filename));
-        return next;
-      });
-    }
+    const filtered = newFiles.filter((f) => f.name.endsWith(".jar") || f.name.endsWith(".zip") || f.name.endsWith(".json") || f.name.endsWith(".toml") || f.name.endsWith(".cfg"));
+    const pending: PendingFile[] = filtered.map((file) => ({ file, type: guessType(file.name) }));
+    setFilesToAdd((prev) => [...prev, ...pending]);
+  };
+
+  const updateFileType = (index: number, type: ModFile["type"]) => {
+    setFilesToAdd((prev) => prev.map((p, i) => i === index ? { ...p, type } : p));
+  };
+
+  const removeFileToadd = (index: number) => {
+    setFilesToAdd((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -310,21 +330,14 @@ export default function Admin() {
                               />
                               <Label
                                 htmlFor={`del-${f.filename}`}
-                                className="text-sm text-gray-300 cursor-pointer font-mono flex items-center gap-2"
+                                className="text-sm text-gray-300 cursor-pointer font-mono flex items-center gap-2 flex-1 min-w-0"
                               >
-                                {f.filename}
-                                {isBundleFile(f) && (
-                                  <span className="text-[10px] bg-accent/20 text-accent border border-accent/30 rounded px-1 py-0.5 font-sans">bundle</span>
-                                )}
-                                <span className="text-xs text-muted-foreground">({f.sizeMb} MB)</span>
+                                <span className="truncate">{f.filename}</span>
+                                <span className="text-[10px] bg-white/10 text-gray-400 rounded px-1 py-0.5 font-sans shrink-0">{f.type}</span>
+                                <span className="text-xs text-muted-foreground shrink-0">({f.sizeMb} MB)</span>
                               </Label>
                             </div>
                           ))
-                        )}
-                        {hasBundle && (
-                          <p className="text-xs text-muted-foreground border-t border-white/5 pt-3 mt-1">
-                            Al subir un nuevo zip, el bundle anterior se marcará para eliminar automáticamente.
-                          </p>
                         )}
                       </div>
                     </div>
@@ -333,37 +346,54 @@ export default function Admin() {
                       <h4 className="font-bold text-white flex items-center gap-2">
                         <Upload className="h-4 w-4 text-accent" /> Añadir archivos
                       </h4>
-                      <div
-                        className="bg-background/50 border border-white/5 border-dashed rounded-md p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-white/5 transition-colors relative"
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={handleFileDrop}
-                      >
-                        <Upload className="h-8 w-8 text-muted-foreground mb-3" />
-                        <p className="text-sm font-medium text-gray-200">Arrastra archivos aquí</p>
-                        <p className="text-xs text-muted-foreground mt-1">.jar, .zip</p>
-                        <input
-                          type="file"
-                          multiple
-                          accept=".jar,.zip"
-                          className="absolute inset-0 opacity-0 cursor-pointer"
-                          onChange={(e) => {
-                            if (e.target.files) addFiles(Array.from(e.target.files));
-                          }}
-                        />
-                      </div>
-                      {filesToAdd.length > 0 && (
-                        <div className="space-y-1">
-                          {filesToAdd.map((f, i) => (
-                            <div key={i} className="flex items-center justify-between text-sm text-gray-300 bg-white/5 rounded px-3 py-1.5">
-                              <span className="font-mono truncate">{f.name}</span>
-                              <button
-                                className="ml-2 text-destructive hover:text-destructive/80 shrink-0"
-                                onClick={() => setFilesToAdd((p) => p.filter((_, j) => j !== i))}
+                      {filesToAdd.length > 0 ? (
+                        <div className="space-y-2 bg-background/50 border border-white/5 rounded-md p-3 max-h-[280px] overflow-y-auto">
+                          {filesToAdd.map((pf, i) => (
+                            <div key={i} className="flex items-center gap-2 text-sm bg-white/5 rounded px-2 py-1.5">
+                              <span className="font-mono text-gray-300 truncate flex-1 min-w-0 text-xs">{pf.file.name}</span>
+                              <select
+                                value={pf.type}
+                                onChange={(e) => updateFileType(i, e.target.value as ModFile["type"])}
+                                className="bg-background border border-white/10 text-gray-300 text-xs rounded px-1 py-0.5 shrink-0"
                               >
-                                ✕
-                              </button>
+                                {FILE_TYPES.map((t) => (
+                                  <option key={t} value={t}>{typeLabel[t]}</option>
+                                ))}
+                              </select>
+                              <button
+                                className="text-destructive hover:text-destructive/80 shrink-0 text-xs"
+                                onClick={() => removeFileToadd(i)}
+                              >✕</button>
                             </div>
                           ))}
+                          <div
+                            className="border border-white/10 border-dashed rounded-md p-3 flex items-center justify-center gap-2 text-xs text-muted-foreground cursor-pointer hover:bg-white/5 relative"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={handleFileDrop}
+                          >
+                            <Upload className="h-3 w-3" /> Añadir más archivos
+                            <input type="file" multiple accept=".jar,.zip,.json,.toml,.cfg" className="absolute inset-0 opacity-0 cursor-pointer"
+                              onChange={(e) => { if (e.target.files) addFiles(Array.from(e.target.files)); }} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          className="bg-background/50 border border-white/5 border-dashed rounded-md p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-white/5 transition-colors relative"
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={handleFileDrop}
+                        >
+                          <Upload className="h-8 w-8 text-muted-foreground mb-3" />
+                          <p className="text-sm font-medium text-gray-200">Arrastra archivos aquí</p>
+                          <p className="text-xs text-muted-foreground mt-1">.jar, .zip — puedes subir mods individuales o un zip completo</p>
+                          <input
+                            type="file"
+                            multiple
+                            accept=".jar,.zip,.json,.toml,.cfg"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            onChange={(e) => {
+                              if (e.target.files) addFiles(Array.from(e.target.files));
+                            }}
+                          />
                         </div>
                       )}
                     </div>

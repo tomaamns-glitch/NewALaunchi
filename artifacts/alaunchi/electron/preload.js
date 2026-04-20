@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Minecraft operations
   getInstalledModpacks: () => ipcRenderer.invoke("mc:get-installed-modpacks"),
   installModpack: (args) => ipcRenderer.invoke("mc:install-modpack", args),
+  syncModpack: (args) => ipcRenderer.invoke("mc:sync-modpack", args),
   updateModpack: (args) => ipcRenderer.invoke("mc:update-modpack", args),
   launchMinecraft: (args) => ipcRenderer.invoke("mc:launch", args),
   checkJava: () => ipcRenderer.invoke("mc:check-java"),

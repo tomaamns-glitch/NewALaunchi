@@ -160,12 +160,17 @@ export async function fetchModpackFiles(repoUrl: string, modpackId: string, toke
   }
 }
 
+export interface PendingFile {
+  file: File;
+  type: ModFile["type"];
+}
+
 export async function publishUpdate(
   token: string,
   repoUrl: string,
   modpackId: string,
   filesToDelete: string[],
-  filesToAdd: File[],
+  filesToAdd: PendingFile[],
   newVersion?: string
 ): Promise<void> {
   const parsed = parseRepo(repoUrl);
@@ -204,7 +209,7 @@ export async function publishUpdate(
 
     const uploadBase = release.upload_url.replace("{?name,label}", "");
 
-    for (const file of filesToAdd) {
+    for (const { file, type } of filesToAdd) {
       const arrayBuffer = await file.arrayBuffer();
       const uploadRes = await fetch(`${uploadBase}?name=${encodeURIComponent(file.name)}`, {
         method: "POST",
@@ -218,7 +223,7 @@ export async function publishUpdate(
       const asset = await uploadRes.json();
       uploadedFiles.push({
         filename: file.name,
-        type: guessFileType(file.name),
+        type,
         sizeMb: parseFloat((file.size / 1_048_576).toFixed(2)),
         downloadUrl: asset.browser_download_url,
       });

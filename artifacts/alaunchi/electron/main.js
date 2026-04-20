@@ -161,6 +161,27 @@ async function extractBundleZip(zipPath, destDir) {
   }
 }
 
+function resolveFileDestPath(file, instanceDir) {
+  const isZip = file.filename?.toLowerCase().endsWith(".zip");
+  const isBundle = file.type === "bundle" || (isZip && file.type === "mod");
+  if (isBundle) return null;
+  if (file.type === "mod") return path.join(instanceDir, "mods", file.filename);
+  if (file.type === "resourcepack") return path.join(instanceDir, "resourcepacks", file.filename);
+  if (file.type === "shader") return path.join(instanceDir, "shaderpacks", file.filename);
+  return path.join(instanceDir, file.filename);
+}
+
+async function fileNeedsDownload(destPath, sizeMb) {
+  if (!destPath) return true;
+  try {
+    const stat = await fs.stat(destPath);
+    const existingSizeMb = parseFloat((stat.size / 1_048_576).toFixed(2));
+    return existingSizeMb !== sizeMb;
+  } catch {
+    return true;
+  }
+}
+
 ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files }) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   const instanceDir = path.join(INSTANCES_DIR, modpackId);
@@ -194,9 +215,14 @@ ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files }
   for (let i = 0; i < (files || []).length; i++) {
     const file = files[i];
     if (!file.downloadUrl) continue;
-    const isZip = file.filename?.toLowerCase().endsWith(".zip");
-    const isBundle = file.type === "bundle" || (isZip && file.type === "mod");
-    if (isBundle) {
+    const destPath = resolveFileDestPath(file, instanceDir);
+    const needsDownload = await fileNeedsDownload(destPath, file.sizeMb);
+    if (!needsDownload) {
+      const overall = Math.round(((i + 1) / files.length) * 100);
+      win?.webContents.send("install-progress", { modpackId, stage: "downloading", progress: overall });
+      continue;
+    }
+    if (destPath === null) {
       const tmpZip = path.join(CACHE_DIR, `bundle-${modpackId}-${Date.now()}.zip`);
       await downloadFile(file.downloadUrl, tmpZip, (p) => {
         const overall = Math.round(((i + p / 100) / files.length) * 100);
@@ -205,11 +231,7 @@ ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files }
       await extractBundleZip(tmpZip, instanceDir);
       await fs.unlink(tmpZip).catch(() => {});
     } else {
-      let destDir = instanceDir;
-      if (file.type === "mod") destDir = modsDir;
-      else if (file.type === "resourcepack") destDir = resourcepacksDir;
-      else if (file.type === "shader") destDir = shaderpacks;
-      const destPath = path.join(destDir, file.filename);
+      await fs.mkdir(path.dirname(destPath), { recursive: true });
       await downloadFile(file.downloadUrl, destPath, (p) => {
         const overall = Math.round(((i + p / 100) / files.length) * 100);
         win?.webContents.send("install-progress", { modpackId, stage: "downloading", progress: overall });
@@ -224,6 +246,7 @@ ipcMain.handle("mc:install-modpack", async (event, { modpackId, modpack, files }
     minecraftVersion: modpack?.minecraftVersion ?? "1.20.4",
     loaderType: modpack?.loaderType ?? "vanilla",
     installedAt: new Date().toISOString(),
+    installedManifest: files || [],
   };
   await fs.writeFile(path.join(instanceDir, "alaunchi-meta.json"), JSON.stringify(meta, null, 2));
 
@@ -288,6 +311,74 @@ ipcMain.handle("mc:update-modpack", async (event, { modpackId, filesToDelete, fi
 
   win?.webContents.send("install-progress", { modpackId, stage: "done", progress: 100 });
   return { success: true };
+});
+
+ipcMain.handle("mc:sync-modpack", async (event, { modpackId, modpack, newFiles }) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const instanceDir = path.join(INSTANCES_DIR, modpackId);
+
+  win?.webContents.send("install-progress", { modpackId, stage: "downloading", progress: 0 });
+
+  let oldFiles = [];
+  try {
+    const metaRaw = await fs.readFile(path.join(instanceDir, "alaunchi-meta.json"), "utf8");
+    oldFiles = JSON.parse(metaRaw).installedManifest || [];
+  } catch {}
+
+  const oldMap = new Map(oldFiles.map((f) => [f.filename, f]));
+  const newMap = new Map((newFiles || []).map((f) => [f.filename, f]));
+
+  for (const [filename, oldFile] of oldMap) {
+    if (!newMap.has(filename)) {
+      const destPath = resolveFileDestPath(oldFile, instanceDir);
+      if (destPath) {
+        await fs.unlink(destPath).catch(() => {});
+      }
+    }
+  }
+
+  const toDownload = (newFiles || []).filter((f) => {
+    const old = oldMap.get(f.filename);
+    if (!old) return true;
+    return old.sizeMb !== f.sizeMb;
+  });
+
+  await fs.mkdir(path.join(instanceDir, "mods"), { recursive: true });
+  await fs.mkdir(path.join(instanceDir, "resourcepacks"), { recursive: true });
+  await fs.mkdir(path.join(instanceDir, "shaderpacks"), { recursive: true });
+
+  for (let i = 0; i < toDownload.length; i++) {
+    const file = toDownload[i];
+    if (!file.downloadUrl) continue;
+    const destPath = resolveFileDestPath(file, instanceDir);
+    if (destPath === null) {
+      const tmpZip = path.join(CACHE_DIR, `bundle-${modpackId}-${Date.now()}.zip`);
+      await downloadFile(file.downloadUrl, tmpZip, (p) => {
+        const overall = Math.round(((i + p / 100) / toDownload.length) * 100);
+        win?.webContents.send("install-progress", { modpackId, stage: "downloading", progress: overall });
+      });
+      await extractBundleZip(tmpZip, instanceDir);
+      await fs.unlink(tmpZip).catch(() => {});
+    } else {
+      await fs.mkdir(path.dirname(destPath), { recursive: true });
+      await downloadFile(file.downloadUrl, destPath, (p) => {
+        const overall = Math.round(((i + p / 100) / toDownload.length) * 100);
+        win?.webContents.send("install-progress", { modpackId, stage: "downloading", progress: overall });
+      });
+    }
+  }
+
+  try {
+    const metaRaw = await fs.readFile(path.join(instanceDir, "alaunchi-meta.json"), "utf8");
+    const meta = JSON.parse(metaRaw);
+    meta.version = modpack?.version ?? meta.version;
+    meta.installedManifest = newFiles || [];
+    meta.installedAt = new Date().toISOString();
+    await fs.writeFile(path.join(instanceDir, "alaunchi-meta.json"), JSON.stringify(meta, null, 2));
+  } catch {}
+
+  win?.webContents.send("install-progress", { modpackId, stage: "done", progress: 100 });
+  return { success: true, downloaded: toDownload.length };
 });
 
 ipcMain.handle("mc:launch", async (event, { modpackId, mcVersion, loaderType, authToken, username, uuid }) => {
