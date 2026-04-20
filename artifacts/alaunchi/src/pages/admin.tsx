@@ -333,13 +333,14 @@ export default function Admin() {
 
   const guessType = (filename: string): ModFile["type"] => {
     const low = filename.toLowerCase();
-    const ext = low.split(".").pop();
+    const ext = low.split(".").pop() ?? "";
     if (ext === "jar") return "mod";
     if (ext === "zip") {
       if (low.includes("shader") || low.includes("shad")) return "shader";
       if (low.includes("resource") || low.includes("texture")) return "resourcepack";
       return "bundle";
     }
+    if (["png", "ogg"].includes(ext)) return "resourcepack";
     return "config";
   };
 
@@ -355,10 +356,21 @@ export default function Admin() {
   const SYSTEM_FILES = new Set([".ds_store", "thumbs.db", "desktop.ini", ".gitkeep"]);
   const isSystemFile = (name: string) => SYSTEM_FILES.has(name.toLowerCase());
 
+  const MC_EXTENSIONS = [
+    ".jar", ".zip",
+    ".json", ".json5", ".jsonc",
+    ".toml", ".cfg", ".properties",
+    ".txt", ".dat", ".dat_old",
+    ".nbt", ".snbt",
+    ".yaml", ".yml",
+    ".mcmeta", ".lang", ".zs", ".js",
+    ".png", ".ogg",
+  ];
+
   const addFiles = (newFiles: File[]) => {
     const filtered = newFiles.filter((f) =>
       !isSystemFile(f.name) &&
-      (f.name.endsWith(".jar") || f.name.endsWith(".zip") || f.name.endsWith(".json") || f.name.endsWith(".toml") || f.name.endsWith(".cfg") || f.name.endsWith(".properties"))
+      MC_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))
     );
     const pending: PendingFile[] = filtered.map((file) => ({ file, type: guessType(file.name) }));
     setFilesToAdd((prev) => [...prev, ...pending]);
@@ -630,7 +642,7 @@ export default function Admin() {
                               <button className="w-full border border-white/10 border-dashed rounded px-3 py-1.5 text-xs text-muted-foreground hover:bg-white/5 flex items-center justify-center gap-1.5">
                                 <Upload className="h-3 w-3" /> Archivos
                               </button>
-                              <input type="file" multiple accept=".jar,.zip,.json,.toml,.cfg,.properties" className="absolute inset-0 opacity-0 cursor-pointer"
+                              <input type="file" multiple accept=".jar,.zip,.json,.json5,.jsonc,.toml,.cfg,.properties,.txt,.dat,.dat_old,.nbt,.snbt,.yaml,.yml,.mcmeta,.lang,.zs,.js,.png,.ogg" className="absolute inset-0 opacity-0 cursor-pointer"
                                 onChange={(e) => { if (e.target.files) addFiles(Array.from(e.target.files)); e.target.value = ""; }} />
                             </div>
                             <div className="relative flex-1">
@@ -652,8 +664,8 @@ export default function Admin() {
                           >
                             <Upload className="h-7 w-7 text-muted-foreground mb-2" />
                             <p className="text-sm font-medium text-gray-200">Arrastra archivos aquí</p>
-                            <p className="text-xs text-muted-foreground mt-1">.jar, .zip, configs individuales</p>
-                            <input type="file" multiple accept=".jar,.zip,.json,.toml,.cfg,.properties" className="absolute inset-0 opacity-0 cursor-pointer"
+                            <p className="text-xs text-muted-foreground mt-1">.jar, .zip, .json, .txt, .dat, .toml, .nbt y más</p>
+                            <input type="file" multiple accept=".jar,.zip,.json,.json5,.jsonc,.toml,.cfg,.properties,.txt,.dat,.dat_old,.nbt,.snbt,.yaml,.yml,.mcmeta,.lang,.zs,.js,.png,.ogg" className="absolute inset-0 opacity-0 cursor-pointer"
                               onChange={(e) => { if (e.target.files) addFiles(Array.from(e.target.files)); }} />
                           </div>
                           <div className="relative">
